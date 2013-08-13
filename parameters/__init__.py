@@ -1,3 +1,7 @@
+__author__ = 'Matthew Wardrop'
+__author_email__ = 'mister dot <surname> at gmail'
+__version__ = '0.5'
+
 import numpy as np
 
 from quantities import Quantity,SIQuantity
