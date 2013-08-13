@@ -3,9 +3,24 @@ parameters
 
 A python library that takes care of physical quantities; including unit conversions and scalings.
 
-The following is the documentation included within the Parameters object.
+Installation
+------------
 
-Parameters(dispenser=None,default_scaled=True,constants=False)
+In most cases, installing this module is as easy as:
+
+$ python2 setup.py install
+
+If you run Arch Linux, you can instead run:
+
+$ makepkg
+$ pacman -U python2-parameters-<version>-1-<arch>.pkg.tar.xz
+
+Documentation
+-------------
+
+The following is the documentation included within the Parameters object:
+
+	Parameters(dispenser=None,default_scaled=True,constants=False)
 	
 	An object to manage the generation of scaled parameters; as well as 
 	handle the dependence of parameters upon one another.
