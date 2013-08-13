@@ -569,8 +569,6 @@ class Parameters(object):
 		for dim,power in unit.dimensions.items():
 			scaling *= self.__scalings.get(dim,Quantity(1,self.__units.basis()[dim],dispenser=self.__units))**power
 		
-		print scaling
-		
 		return scaling
 	
 	def __unit_scaling(self,unit):
