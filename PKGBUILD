@@ -1,6 +1,6 @@
 # Maintainer: Matthew Wardrop <mister.wardrop@gmail.com>
 pkgname=python2-parameters
-pkgver=0.5
+pkgver=0.6
 pkgrel=1
 pkgdesc="A parameter manager that keeps track of united parameters, and the relationships between them."
 arch=('i686' 'x86_64')

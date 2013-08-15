@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(name='Parameters',
-      version='0.5',
+      version='0.6',
       description='A parameter manager that keeps track of united parameters, and the relationships between them.',
       author='Matthew Wardrop',
       author_email='mister.wardrop@gmail.com',

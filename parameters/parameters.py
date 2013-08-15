@@ -1,12 +1,13 @@
 import types,inspect
 from definitions import SIDispenser
 from quantities import Quantity,SIQuantity
-from units import Units
+from units import Units,Unit
 import numpy as np
 import sympy
 import physical_constants
 from text import colour_text
 import re
+import errors
 
 class Parameters(object):
 	"""
@@ -104,6 +105,11 @@ class Parameters(object):
 		x=1. This will return a ValueError with a description of the problem.
 		However, this allows one to have an intricate variable structure.
 		
+		If a parameter has a functional dependence, but is not invertible, 
+		and it is updated as above, an error will be raised. However, if 
+		the is being specified only as an override, it is maintained, but
+		may result in the parameters being inconsistent.
+		
 		To force parameters to be overridden, whether or not the parameter is
 		a function, use the left shift operator:
 		>>> p << {'z': (1,'ms')}
@@ -185,15 +191,18 @@ class Parameters(object):
 	
 	############## PARAMETER OBJECT CONFIGURATION ##############################
 	def __add__(self,other):
-		self.__unit_add(**other)
+		self.__unit_add(other)
 		return self
 		
-	def __unit_add(self,**options):
+	def __unit_add(self,other):
 		'''
 		This adds a unit to a custom UnitDispenser. See UnitDispenser.add for more info.
 		'''
-		self.__units.add(**options)
-		self.__units_custom.append(options)
+		if isinstance(other,dict):
+			other = Unit(**other)
+		if isinstance(other, Unit):
+			self.__units.add(other)
+			self.__units_custom.append(other)
 	
 	def __mul__(self,other):
 		self.__scaling_set(other)
@@ -210,26 +219,26 @@ class Parameters(object):
 					if scale.units.dimensions == {arg:1}:
 						self.__scalings[arg] = scale
 					else:
-						print "Warning: Dimension of scaling is wrong for %s" % arg
+						raise errors.ScalingUnitInvalidError( "Dimension of scaling (%s) is wrong for %s." % (scale.units,arg) )
 				else:
-					print "Error: Invalid scaling dimension."
+					raise errors.ScalingDimensionInvalidError("Invalid scaling dimension %s." % arg)
 		
 		# Otherwise, add a new unit scaling
 		elif isinstance(kwargs,(list,tuple)) and len(kwargs)==2:
 			self.__unit_scalings.append(kwargs)
 		
 		else:
-			raise ValueError, "Cannot set scaling with %s" % kwargs
+			raise errors.ScalingValueError( "Cannot set scaling with %s." % kwargs )
 	
 	def __get_unit(self,unit):
 		
 		if isinstance(unit,str):
-			return self.__units.get(unit)
+			return self.__units(unit)
 		
 		elif isinstance(unit,Units):
 			return unit
 		
-		raise ValueError, "No coercion for %s to WorkingUnit." % unit
+		raise errors.UnitInvalidError( "No coercion for %s to Units." % unit )
 			
 	############# PARAMETER RETRIEVAL ##########################################
 	
@@ -291,7 +300,7 @@ class Parameters(object):
 			#return param if not param.startswith('_') else param[1:]
 		return param
 	
-	def __process_override(self,kwargs,restrict=None):
+	def __process_override(self,kwargs,restrict=None,abort_noninvertable=False):
 		'''
 		Process kwargs and make sure that if one of the provided overrides 
 		corresponds to an invertable function, that the affected variables are also included
@@ -321,11 +330,16 @@ class Parameters(object):
 		for pam,val in kwargs.items():
 			if pam in restrict:
 				if isinstance(self.__parameters.get(pam),types.FunctionType):
-					vals = self.__eval_function(pam,**kwargs)
-					for key in vals:
-						if key in kwargs and vals[key] != kwargs[key] or key in new and vals[key] != new[key]:
-							raise ValueError, "Warning: parameter %s overspecified, with contradictory values." % key
-					new.update(vals)
+					try:
+						vals = self.__eval_function(pam,**kwargs)
+						for key in vals:
+							if key in kwargs and vals[key] != kwargs[key] or key in new and vals[key] != new[key]:
+								raise errors.ParameterOverSpecifiedError("Parameter %s is overspecified, with contradictory values." % key)
+						new.update(vals)
+					except errors.ParameterNotInvertableError, e:
+						if abort_noninvertable:
+							raise e
+						print colour_text("WARNING: Parameters are probably inconsistent as %s was overridden, but is not invertable, and so the underlying variables (%s) have not been updated." % (pam, ','.join(inspect.getargspec(self.__parameters.get(pam)).args)) , "YELLOW", True)
 		
 		kwargs.update(new)
 		self.__process_override(kwargs,restrict=new.keys())
@@ -343,7 +357,7 @@ class Parameters(object):
 		
 		# Check if we are allowed to continue
 		if param in kwargs and param not in inspect.getargspec(f)[0] and "_"+param not in inspect.getargspec(f)[0]:
-			raise ValueError, "Configuration requiring the inverting of a non-invertable map for %s."%param
+			raise errors.ParameterNotInvertableError( "Configuration requiring the inverting of a non-invertable map for %s."%param )
 		
 		arguments = []
 		for arg in inspect.getargspec(f)[0]:
@@ -386,7 +400,7 @@ class Parameters(object):
 		# If tuple of (value,unit) is presented
 		if isinstance(value,(tuple,list)):
 			if len(value) != 2:
-				raise ValueError
+				raise errors.QuantityCoercionError("Tuple specifications of quantities must be of form (<value>,<unit>). Was provided with %s ."%value)
 			else:
 				q = Quantity(*value,dispenser=self.__units)
 		
@@ -423,20 +437,18 @@ class Parameters(object):
 					arg = sympy.S(arg)
 					fs = list(arg.free_symbols)
 					if len(fs) == 1 and str(arg)==str(fs[0]):
-						raise ValueError, "There is no parameter, and no interpretation, of '%s' which is recognised by Parameters." % arg
+						raise errors.ParameterInvalidError("There is no parameter, and no interpretation, of '%s' which is recognised by Parameters." % arg)
 				params = {}
 				for sym in arg.free_symbols:
 					param = self.__get_param(str(sym),**kwargs)
 					if isinstance(param,Quantity):
-						raise ValueError, "Symbolic expressions can only be evaluated when using scaled parameters."
+						raise errors.SymbolicEvaluationError("Symbolic expressions can only be evaluated when using scaled parameters. Attempted to use '%s' in '%s', which would yield a united quantity." % (sym,arg))
 					params[str(sym)] = self.__get_param(str(sym),**kwargs)
 				return arg.subs(params).evalf()
-			except ValueError, e:
-				raise e
-			except KeyError, e:
+			except errors.ParameterInvalidError, e:
 				raise e
 			except Exception, e:
-				raise RuntimeError, "Error evaluating symbolic statement '%s'. Ensure that only scaled parameters are being used. The message was: `%s`." % (arg,e)
+				raise errors.SymbolicEvaluationError("Error evaluating symbolic statement '%s'. The message from SymPy was: `%s`." % (arg,e))
 		
 		raise KeyError, "There is no parameter, and no interpretation, of '%s' which is recognised by Parameters." % arg
 	
@@ -451,14 +463,14 @@ class Parameters(object):
 			if not self.__is_valid_param(param):
 				bad.append(param)
 		if len(bad) > 0:
-			raise KeyError, "Attempt to set invalid parameters: %s . Parameters must be valid python identifiers matching ^[_A-Za-z][_a-zA-Z0-9]*$." % ','.join(bad)
+			raise errors.ParameterInvalidError("Attempt to set invalid parameters: %s . Parameters must be valid python identifiers matching ^[_A-Za-z][_a-zA-Z0-9]*$." % ','.join(bad) )
 	
 	def __set(self,**kwargs):
 		
 		self.__check_valid_params(kwargs)
 		
 		for param,val in kwargs.items():
-			try:
+			#try:
 				if isinstance(val,(types.FunctionType,str)):
 					self.__parameters[param] = self.__check_function(param,self.__get_function(val))
 					self.__spec(**{param:self.__get_unit('')})
@@ -470,24 +482,22 @@ class Parameters(object):
 					if isinstance(self.__parameters[param],Quantity):
 						self.__spec(**{param:self.__parameters[param].units})
 			
-			except ValueError, e:
-				raise ValueError, "Could not add parameter %s. %s" % (param, e)
+			#except Exception, e:
+			#	raise errors.ParametersException("Could not add parameter %s. %s" % (param, e))
 	
 	def __update(self,**kwargs):
 		
 		self.__check_valid_params(kwargs)
 		
-		self.__process_override(kwargs)
+		self.__process_override(kwargs,abort_noninvertable=True)
 		
 		for param,value in kwargs.items():
 			if param not in self.__parameters or not isinstance(self.__parameters.get(param),types.FunctionType):
 				self.__set(**{param:kwargs[param]})
-				#print param,kwargs[param]
-				#self.__parameters[param] = self.__get_quantity(kwargs[param],param=param)
 	
 	def __and__(self,other):
 		if not isinstance(other,dict):
-			raise ValueError, "Cannot set the units for parameters without using a dictionary."
+			raise errors.ParametersException("The binary and operator is used to set the unit specification for parameters; and requires a dictionary of units.")
 		self.__spec(**other)
 	
 	def __spec(self, **kwargs):
@@ -505,7 +515,7 @@ class Parameters(object):
 	
 	def __sub__(self,other):
 		if not isinstance(other,str):
-			raise ValueError, "Subtractee must be the name of a variable."
+			raise errors.ParameterInvalidError("The subtraction operator is used to remove parameters; and a parameter name string must be provided.")
 		
 		self.__remove(other)
 		return self
@@ -513,7 +523,7 @@ class Parameters(object):
 	def __lshift__(self,other):
 		
 		if not isinstance(other,dict):
-			raise ValueError
+			raise errors.ParametersException("The left shift operator sets parameter values without interpretation; such as functions. It accepts a dictionary of parameter values.")
 		
 		self.__set(**other)
 		return self
@@ -529,7 +539,7 @@ class Parameters(object):
 
 			return o['g']
 		except:
-			raise ValueError, 'String is not a valid symbolic expression.'
+			raise errors.SymbolicEvaluationError( 'String \'%s\' is not a valid symbolic expression.' % (expr) )
 	
 	def __get_function(self,expr):
 		if isinstance(expr,types.FunctionType):
@@ -547,7 +557,7 @@ class Parameters(object):
 		else:
 			for arg in forbidden:
 				if arg in args:
-					raise ValueError, "Adding function would result in recursion with function '%s'" % arg
+					raise errors.ParameterRecursionError( "Adding function would result in recursion with function '%s'" % arg )
 		forbidden.append(param)
 		
 		for arg in args:
@@ -667,16 +677,12 @@ class Parameters(object):
 			return quantity
 		
 		if output is None:
-			return quantity / self.__unit_scaling(self.__units.get(input))
+			return quantity / self.__unit_scaling(self.__units(input))
 		
 		if input is None:
 			return self.__get_quantity(quantity, unit=output)
-			#return quantity * self.__unit_scaling(self.__units.get(output))
 		
-		#unit_in = self.__units.get(input)
-		#unit_out = self.__units.get(output)
 		return Quantity(quantity, input, dispenser=self.__units)(output)
-		#quantity * unit_in.scale(unit_out)
 	
 	def optimise(self,param):
 		'''
@@ -689,7 +695,7 @@ class Parameters(object):
 		elif isinstance(param,str):
 			return self.__sympy_to_function(param)
 		
-		raise ValueError, "No way to optimise parameter expression: %s ." % param
+		raise errors.ExpressionOptimisationError("No way to optimise parameter expression: %s ." % param)
 	
 	################## LOAD / SAVE PROFILES ################################
 	
@@ -716,7 +722,7 @@ class Parameters(object):
 	def __rshift__(self,other):
 		
 		if not isinstance(other, str):
-			raise ValueError, "Must be a filename."
+			raise errors.ParametersException("The right shift operator is used to save the parameters to a file. The operand must be a filename.")
 		
 		self.__save__(other)
 		return self

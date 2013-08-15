@@ -1,12 +1,48 @@
 
 from fractions import Fraction
+import errors
+from text import colour_text
 
 class Unit(object):
 	'''
+	Unit (names,abbr=None,rel=1.0,prefixable=True,plural=None,dimensions={})
+	
 	The fundamental unit object.
+	
+	Parameters
+	----------
+	names : A string or list of strings that are used as full names for this
+		unit.
+	abbr : A string that will be used to represent the abbreviated unit.
+	rel : The size of this unit compared to some fixed arbitrary basis. For
+		clarity, the SI basis is used in this module.
+	prefixable : Whether or not the unit can be prefixed (e.g. milli, micro,
+		etc).
+	plural : When written in full, use this string as the plural unit. Note 
+		that when this is not provided, an 's' is appended to the 
+		unit.
+	dimensions : A dictionary that describes the dimensions of this unit. 
+		These dimensions can be any string; i.e. {'length':1, 'mass':-2}
+		would describe a unit that in SI units could be represented as
+		"m/kg^2" . Note that you can invent your own dimensions to; such as:
+		"intelligence"; or even change the basis of the SI units so that 
+		"energy" is a base dimension. So long as you do this consistently
+		in all of your units, everything will work fine.
+	
+	Examples
+	--------
+	
+	Creating a unit is easy:
+	>>> u = Unit('metre',abbr='m',rel=1.0,dimensions={'length':1,'mass':-2})
+	
+	You can also defer adding the dimensions, or change the dimensions using:
+	>>> u.set_dimensions(length=1,mass=-2)
+	The set_dimensions object returns the Unit object itself, so that it can 
+	be chained.
+	
 	'''
 	
-	def __init__(self,names,abbr=None,rel=1.0,prefixable=True,plural=None,**dimensions):
+	def __init__(self,names,abbr=None,rel=1.0,prefixable=True,plural=None,dimensions={}):
 		self.names = names if isinstance(names,(tuple,list)) else [names]
 		self.abbr = abbr
 		self.plural = plural
@@ -15,12 +51,74 @@ class Unit(object):
 		self.prefixable = prefixable
 		
 		self.dimensions = dimensions
+	
+	def set_dimensions(self,**dimensions):
+		self.dimensions = dimensions
+		return self
 		
 	def __repr__(self):
 		return self.names[0]
 
 class UnitsDispenser(object):
+	'''
+	UnitsDispenser()
 	
+	An object that manages a collection of Unit objects, and generates Units
+	objects from them. Most of the methods attached to this object modify
+	the Unit objects attached to this object; only calling the object retrieves
+	a Units object.
+	
+	One can subclass the UnitDispenser object and implement the 
+	UnitsDispenser.[init_prefixies,init_units] methods to prepopulate the
+	UnitDispenser object with units.
+	
+	
+	Examples
+	--------
+	
+	Create a UnitDispenser object.
+	>>> ud = UnitDispenser()
+	
+	Add a unit to the pool of available Unit objects. See documentation for
+	`Unit`. For example:
+	>>> ud.add( Unit('metre',abbr='m',rel=1.0).set_dimensions(length=1,mass=-2) )
+	Alternatively, one can also add predefined Unit objects. 
+	>>> ud + Unit('metre',abbr='m',rel=1.0).set_dimensions(length=1,mass=-2)
+	Note that when adding a unit, it will replace any existing unit by the 
+	same name; and that if Unit.prefixable is True, then it will add the unit
+	as well as the prefixed versions of itself.
+	
+	A list of the units available in the UnitDispenser are retrievable using:
+	>>> ud.list()
+	
+	You can check if a unit is included in the dispenser by running:
+	>>> ud.has('metre')
+	
+	To retrieve a Unit object from the pool, you can run:
+	>>> ud.get('metre')
+	
+	Each UnitDispenser object also keeps track of which dimensions its' 
+	units span. This can be retrieved using:
+	>>> ud.dimensions
+	
+	For each of the dimensions, it maintains a default base unit for that
+	dimension. This then acts as a basis for the rest of the units. This 
+	basis will automatically select a unit when it is added, if a unit is 
+	added that has only that dimension with a order of 1 (e.g. length=1, etc).
+	This basis can be retrieved:
+	>>> ud.basis()
+	and modified:
+	>>> ud.basis(length='metre')
+	
+	And most importantly, the way to extract Units objects from a 
+	UnitDispenser is to call the object with the desired string 
+	representation of the Units.
+	>>> ud('m^2/kg^2')
+	This is also equivalent to:
+	>>> ud('m^2*kg^-2')
+	You can also call it with a Unit object, a Units object, or a dictionary
+	of Unit-power relations.
+	'''
 	def __init__(self):
 		self._dimensions = {}
 		self._units = {}
@@ -41,9 +139,10 @@ class UnitsDispenser(object):
 		A hook to allow subclasses to populate themselves.
 		'''
 		pass
-	
-	def add(self,*args,**kwargs):
-		unit = Unit(*args,**kwargs)
+		
+	def add(self,unit,check=True):
+		if not isinstance(unit,Unit):
+			raise errors.UnitInvalidError("A Unit object is required for addition to a UnitDispenser. Was provided with: '%s'."%unit)
 		
 		for name in unit.names:
 			self._units[name] = unit
@@ -51,18 +150,31 @@ class UnitsDispenser(object):
 			self._units[unit.abbr] = unit
 		
 		for dimension in unit.dimensions:
-			if dimension not in self._dimensions:
-				self._dimensions[dimension] = unit
+			if dimension not in self._dimensions or self._dimensions[dimension] is None: 
+				if unit.dimensions == {dimension:1}:
+					self.basis(**{dimension:unit})
+				else:
+					self._dimensions[dimension] = None
+		if check:
+			for dimension,basis_unit in self.basis().items():
+				if basis_unit is None:
+					print colour_text("WARNING: No basis unit specified for: %s."%dimension)
 		
 		if unit.prefixable:
 			for prefix in self._prefixes:
 				self.add(
-					names="%s%s" % (prefix[0],unit.names[0]),
-					abbr="%s%s" % (prefix[1],unit.abbr) if unit.abbr is not None else None,
-					plural="%s%s" % (prefix[0],unit.plural) if unit.plural is not None else None,
-					rel=unit.rel*prefix[2],
-					prefixable=False,
-					**unit.dimensions)
+					Unit(
+						names="%s%s" % (prefix[0],unit.names[0]),
+						abbr="%s%s" % (prefix[1],unit.abbr) if unit.abbr is not None else None,
+						plural="%s%s" % (prefix[0],unit.plural) if unit.plural is not None else None,
+						rel=unit.rel*prefix[2],
+						prefixable=False
+					).set_dimensions(**unit.dimensions),
+					check=False)
+	
+	def __add__(self,unit):
+		self.add(unit)
+		return self
 	
 	def list(self):
 		return self._units.keys()
@@ -70,32 +182,79 @@ class UnitsDispenser(object):
 	def has(self,identifier):
 		return self._units.has_key(identifier)
 	
-	def get_unit(self,identifier):
-		return self._units[identifier]
+	def get(self,unit):
+		if isinstance(unit,str):
+			return self._units[unit]
+		elif isinstance(unit,Unit):
+			return unit
+		raise errors.UnitInvalidError("Could not find Unit object for '%s'."%unit)
+	
+	@property
+	def dimensions(self):
+		return self._dimensions.keys()
 	
 	def basis(self,**kwargs):
 		if not kwargs:
 			return self._dimensions
 		
 		for key,val in kwargs.items():
-			unit = self.get_unit(val)
+			unit = self.get(val)
 			if unit.dimensions == {key:1}:
 				self._dimensions[key] = unit
 			else:
 				print "Invalid unit (%s) for dimension (%s)" % (unit,key)
-	@property
-	def dimensions(self):
-		return self._dimensions.keys()
+	
 	
 	############# UNITS GENERATION #########################################
 	
-	def get(self,units):
+	def __call__(self,units):
 		return Units(units,dispenser=self)
 	
 
 class Units(object):
 	'''
-	The object describing all possible arrangements of Unit objects.
+	Units(units=None,dispenser=None)
+	
+	The object describing all possible arrangements of Unit objects; and 
+	that handles all unit arithmetic.
+	
+	Parameters
+	----------
+	units : A representation of the units in some form. This can be:
+		- A Units object
+		- A Unit object
+		- A string representing a units object
+		- A dictionary of Unit-power relationships
+	dispenser : A UnitDispenser instance from which the units can be drawn.
+	
+	Examples
+	--------
+	
+	Most of the magic is of the Units of object is done behind the scenes.
+	In particular, if you multiply or divide two units objects, then a new
+	Units object is returned with the appropriate units. It is unlikely
+	though that you will want to use Units objects directly; but rather
+	the Quantity object, which combines the units with a value.
+	
+	There are a few useful methods though.
+	
+	To determine the numerical scaling factor between two units, you can use:
+	>>> units.scale(other_units)
+	This will raise an exception if the other units have different dimensions.
+	
+	The numerical scaling factor of this unit relative to the unit basis of
+	the unit dispenser is given by:
+	>>> units.rel
+	
+	The dimensions of the units object is given by:
+	>>> units.dimensions
+	
+	The unit equivalent unit in the basis of the UnitDispenser is given by:
+	>>> units.basis
+	
+	And you can see the dependence of Units on the underlying Unit objects 
+	directly by using:
+	>>> units.units
 	'''
 	
 	def __init__(self,units=None,dispenser=None):
@@ -103,7 +262,7 @@ class Units(object):
 		self.__units = self.__process_units(units)
 	
 	def __get_unit(self,unit):
-		return self.__dispenser.get_unit(unit)
+		return self.__dispenser.get(unit)
 	
 	def __process_units(self,units):
 		
@@ -144,7 +303,7 @@ class Units(object):
 		
 			return d
 			
-		raise ValueError, "Unrecognised unit description %s" % units
+		raise errors.UnitInvalidError("Unrecognised unit description %s" % units)
 	
 	def __repr__(self):
 		output = []
@@ -176,13 +335,14 @@ class Units(object):
 		'''
 		
 		if isinstance(scale,str):
-			scale = self.__dispenser.get(scale)
+			scale = self.__dispenser(scale)
 		
 		dims = self.dimensions
 		dims_other = scale.dimensions
 		
+		# If the union of the sets of dimensions is less than the maximum size of the dimensions; then clearly the units are the same.
 		if len(set(dims.items()) & set(dims_other.items())) < max(len(dims),len(dims_other)):
-			raise RuntimeError, "Invalid conversion. Units do not match."
+			raise errors.UnitConversionError("Invalid conversion. Units '%s' and '%s' do not match. %s" % (self, scale, set(dims.items()) & set(dims_other.items())))
 		
 		return self.rel / scale.rel
 	
@@ -267,20 +427,3 @@ class Units(object):
 		if str(self) == str(other):
 			return True
 		return False
-
-################# UNIT TESTS ###################################################
-import unittest
-
-class TestUnit(unittest.TestCase):
-
-	def setUp(self):
-		self.p = Parameters()
-
-	def test_create(self):
-		pass
-	
-	def test_multiply(self):
-		pass
-		
-if __name__ == '__main__':
-	unittest.main()

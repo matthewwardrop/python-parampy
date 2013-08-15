@@ -1,8 +1,10 @@
 from parameters import Parameters
-from quantities import SIQuantity
-import units
+from definitions import SIDispenser
+from quantities import Quantity,SIQuantity
+from units import Unit, UnitsDispenser, Units
 import timeit
 import cProfile as profile
+import errors
 '''
 print "Performance Tests"
 print "-----------------"
@@ -62,6 +64,58 @@ print "-----------------"
 ###################### UNIT TESTS ##############################################
 import unittest
 
+class TestUnit(unittest.TestCase):
+	
+	def test_creation(self):
+		unit = Unit('name','nm',rel=2.0,prefixable=False,plural='names').set_dimensions(length=1)
+		self.assertEqual(unit.names,['name'])
+		self.assertEqual(unit.dimensions,{'length':1})
+
+class TestUnitsDispenser(unittest.TestCase):
+	
+	def setUp(self):
+		self.ud = SIDispenser() # Initialising this already tests addition of units
+	
+	def test_get_units(self):
+		self.assertEqual(str(self.ud('kg^2/s')),'kg^2/s')
+
+'''class TestUnits(unittest.TestCase):
+
+	def setUp(self):
+		self.qf = units.QuantityFactory()
+
+	def test_create(self):
+		for unit in units.definitions.UNITS.list():
+			v = units.Quantity(1,unit)
+			self.assertEquals(v.value,1.,'Initial value failed for \'%s\''%unit)
+			self.assertEquals(v.units, units.WorkingUnit.fromString(unit), 'Unit unsuccessfully set for \'%s\''%unit)
+	
+	def test_convert(self):
+		q1 = units.Quantity(1,'m')
+		self.assertEqual( q1('km').value, 0.001, 'm -> km')
+
+	def test_scaling(self):
+		self.qf.setDimensionScaling(length=0.5,mass=2.)
+		
+		self.assertEquals(self.qf.getScalingForUnit('m'),0.5,"Invalid scaling for length.")
+		self.assertEquals(self.qf.getScalingForUnit('J'),0.5,"Invalid scaling for energy.")
+		
+		q = self.qf.fromStored(1.,'m','km')
+		self.assertEquals(q.value,500,'Incorrect extraction of stored data. %s'%str(q))
+		
+		q = self.qf.fromStored(1.,'J','{mu}eV')
+		self.assertEquals(q.value,8.010882435e-26,'Incorrect extraction of stored data. %s'%str(q))
+'''
+
+
+class TestQuantity(unittest.TestCase):
+	
+	def setUp(self):
+		pass
+	
+	def test_create(self):
+		pass
+	
 class TestParameters(unittest.TestCase):
 
 	def setUp(self):
@@ -139,13 +193,13 @@ class TestParameters(unittest.TestCase):
 		self.assertEqual( self.p(lambda _x,_y : _x**2 + _y**2), 5 )
 	
 	def test_units(self):
-		self.p + {'names':'testunit','abbr':'TU','rel':1e7,'length':1,'mass':1,'prefixable':False}
+		self.p + {'names':'testunit','abbr':'TU','rel':1e7,'dimensions':{'length':1,'mass':1},'prefixable':False}
 		self.assertEqual( self.p('x',x=(1,'TU'))('kg*m') , SIQuantity(1e7,'kg*m') )
 	
 	def test_conversion(self):
 		self.assertEqual(SIQuantity(1.,'mT'), self.p.convert(1.0,'mT','mT'))
 		self.assertEqual(SIQuantity(1e-3,'T'), self.p.convert(1.0,'mT','T'))
-		self.assertRaises(RuntimeError, self.p.convert, 1.0, 'kg', 's')
+		self.assertRaises(errors.UnitConversionError, self.p.convert, 1.0, 'kg', 's')
 		self.assertEqual(1e-3, self.p.convert(1.0,'mT'))
 		self.assertEqual(SIQuantity(1e3,'mT'), self.p.convert(1.0,output='mT'))
 		self.p*{'mass':(1,'g')}
@@ -165,34 +219,12 @@ class TestParameters(unittest.TestCase):
 	def test_bad_name(self):
 		def bad():
 			self.p << {'asd%WAD':1}
-		self.assertRaises(KeyError, bad)
-
-'''class TestUnitCreation(unittest.TestCase):
-
-	def setUp(self):
-		self.qf = units.QuantityFactory()
-
-	def test_create(self):
-		for unit in units.definitions.UNITS.list():
-			v = units.Quantity(1,unit)
-			self.assertEquals(v.value,1.,'Initial value failed for \'%s\''%unit)
-			self.assertEquals(v.units, units.WorkingUnit.fromString(unit), 'Unit unsuccessfully set for \'%s\''%unit)
+		self.assertRaises(errors.ParameterInvalidError, bad)
 	
-	def test_convert(self):
-		q1 = units.Quantity(1,'m')
-		self.assertEqual( q1('km').value, 0.001, 'm -> km')
-
-	def test_scaling(self):
-		self.qf.setDimensionScaling(length=0.5,mass=2.)
-		
-		self.assertEquals(self.qf.getScalingForUnit('m'),0.5,"Invalid scaling for length.")
-		self.assertEquals(self.qf.getScalingForUnit('J'),0.5,"Invalid scaling for energy.")
-		
-		q = self.qf.fromStored(1.,'m','km')
-		self.assertEquals(q.value,500,'Incorrect extraction of stored data. %s'%str(q))
-		
-		q = self.qf.fromStored(1.,'J','{mu}eV')
-		self.assertEquals(q.value,8.010882435e-26,'Incorrect extraction of stored data. %s'%str(q))'''
+	def test_noninvertable_functions(self):
+		self.p << {'J_1': lambda t: t**2}
+		self.assertRaises(errors.ParameterNotInvertableError, self.p, J_1=1)
+		self.assertEqual(self.p('_J_1',J_1=1),1.)
 
 if __name__ == '__main__':
     unittest.main()
