@@ -626,8 +626,8 @@ class Parameters(object):
 		
 		return '\n'.join(output)
 	
-	def __repr__(self):
-		
+	@property
+	def repr(self):
 		if len(self.__parameters) == 0:
 			return 'No parameters have been specified.'
 		
@@ -661,6 +661,9 @@ class Parameters(object):
 		
 		return self.__table(parameters)
 	
+	def __repr__(self):
+		return "< Parameters with %d definitions >" % len(self.__parameters)
+		
 	def __dir__(self):
 	    res = dir(type(self)) + list(self.__dict__.keys())
 	    res.extend(self.__parameters.keys())
@@ -696,7 +699,7 @@ class Parameters(object):
 			return self.__sympy_to_function(param)
 		
 		raise errors.ExpressionOptimisationError("No way to optimise parameter expression: %s ." % param)
-	
+
 	################## LOAD / SAVE PROFILES ################################
 	
 	@classmethod
