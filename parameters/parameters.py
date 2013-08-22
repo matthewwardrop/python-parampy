@@ -1,13 +1,14 @@
-import types,inspect
-from definitions import SIDispenser
-from quantities import Quantity,SIQuantity
-from units import Units,Unit
+import types,inspect,warnings,imp,re
+
 import numpy as np
 import sympy
-import physical_constants
-from text import colour_text
-import re
-import errors
+
+from .definitions import SIDispenser
+from .quantities import Quantity,SIQuantity
+from .units import Units,Unit
+from . import physical_constants
+from .text import colour_text
+from . import errors
 
 class Parameters(object):
 	"""
@@ -297,8 +298,19 @@ class Parameters(object):
 			if param[:1] == "_":
 				return param[1:]
 			return param
-			#return param if not param.startswith('_') else param[1:]
 		return param
+
+	def __get_pam_scaled_name(self,param):
+		param = self.__get_pam_name(param)
+		if self.__default_scaled:
+			return param
+		return "_%s"%param
+
+	def __get_pam_united_name(self,param):
+		param = self.__get_pam_name(param)
+		if not self.__default_scaled:
+			return param
+		return "_%s"%param
 	
 	def __process_override(self,kwargs,restrict=None,abort_noninvertable=False):
 		'''
@@ -339,7 +351,7 @@ class Parameters(object):
 					except errors.ParameterNotInvertableError, e:
 						if abort_noninvertable:
 							raise e
-						print colour_text("WARNING: Parameters are probably inconsistent as %s was overridden, but is not invertable, and so the underlying variables (%s) have not been updated." % (pam, ','.join(inspect.getargspec(self.__parameters.get(pam)).args)) , "YELLOW", True)
+						warnings.warn(errors.ParameterInconsistentWarning("Parameters are probably inconsistent as %s was overridden, but is not invertable, and so the underlying variables (%s) have not been updated." % (pam, ','.join(inspect.getargspec(self.__parameters.get(pam)).args))))
 		
 		kwargs.update(new)
 		self.__process_override(kwargs,restrict=new.keys())
@@ -470,7 +482,7 @@ class Parameters(object):
 		self.__check_valid_params(kwargs)
 		
 		for param,val in kwargs.items():
-			#try:
+			try:
 				if isinstance(val,(types.FunctionType,str)):
 					self.__parameters[param] = self.__check_function(param,self.__get_function(val))
 					self.__spec(**{param:self.__get_unit('')})
@@ -481,9 +493,10 @@ class Parameters(object):
 					self.__parameters[param] = self.__get_quantity(val,param=param)
 					if isinstance(self.__parameters[param],Quantity):
 						self.__spec(**{param:self.__parameters[param].units})
-			
-			#except Exception, e:
-			#	raise errors.ParametersException("Could not add parameter %s. %s" % (param, e))
+				if param in dir(type(self)):
+					warnings.warn(errors.ParameterNameWarning("Parameter '%s' will not be accessible using the attribute notation `p.%s`, as it conflicts with a method name of Parameters."%(param,param)))
+			except Exception, e:
+				raise errors.ParametersException("Could not add parameter %s. %s" % (param, e))
 	
 	def __update(self,**kwargs):
 		
@@ -675,17 +688,49 @@ class Parameters(object):
 		return self.__get(name)
 	
 	################## CONVERT UTILITY #####################################
-	def convert(self, quantity, input=None, output=None):
+	def asvalue(self,**kwargs):
+		d = {}
+		for param, value in kwargs.items():
+			d[param] = self.convert(value,output=self.units(param),value=True)
+		if len(d) == 1:
+			return d.values()[0]
+		return d
+
+	def asscaled(self,**kwargs):
+		d = {}
+		for param, value in kwargs.items():
+			d[param] = self.convert(value)
+		if len(d) == 1:
+			return d.values()[0]
+		return d
+
+	def units(self,*params):
+		l = list(self.__parameters_spec.get(param,None) for param in params)
+		if len(params) == 1:
+			return l[0]
+		return l
+
+	def convert(self, quantity, input=None, output=None, value=False):
+
+		if isinstance(quantity,Quantity):
+			input = str(quantity.units)
+			quantity = quantity.value
+
 		if input is None and output is None:
 			return quantity
 		
-		if output is None:
+		elif output is None:
 			return quantity / self.__unit_scaling(self.__units(input))
 		
-		if input is None:
-			return self.__get_quantity(quantity, unit=output)
+		elif input is None:
+			q = self.__get_quantity(quantity, unit=output)
 		
-		return Quantity(quantity, input, dispenser=self.__units)(output)
+		else:
+			q = Quantity(quantity, input, dispenser=self.__units)(output)
+
+		if value:
+			return q.value
+		return q
 	
 	def optimise(self,param):
 		'''
@@ -704,8 +749,6 @@ class Parameters(object):
 	
 	@classmethod
 	def load(cls, filename, **kwargs):
-		import imp
-		
 		profile = imp.load_source('profile', filename)
 		
 		p = cls(**kwargs)

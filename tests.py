@@ -1,10 +1,8 @@
-from parameters import Parameters
-from definitions import SIDispenser
-from quantities import Quantity,SIQuantity
-from units import Unit, UnitsDispenser, Units
 import timeit
 import cProfile as profile
-import errors
+
+from parameters import Parameters,SIDispenser,Quantity,SIQuantity,Unit, UnitsDispenser, Units, errors
+
 '''
 print "Performance Tests"
 print "-----------------"
@@ -57,8 +55,8 @@ timer()
 
 profile.run('testP2()',filename='pam_functional.pstats')
 
-'''
-print "\n\n"
+
+print "\n\n"'''
 print "Unit Tests"
 print "-----------------"
 ###################### UNIT TESTS ##############################################
@@ -78,35 +76,6 @@ class TestUnitsDispenser(unittest.TestCase):
 	
 	def test_get_units(self):
 		self.assertEqual(str(self.ud('kg^2/s')),'kg^2/s')
-
-'''class TestUnits(unittest.TestCase):
-
-	def setUp(self):
-		self.qf = units.QuantityFactory()
-
-	def test_create(self):
-		for unit in units.definitions.UNITS.list():
-			v = units.Quantity(1,unit)
-			self.assertEquals(v.value,1.,'Initial value failed for \'%s\''%unit)
-			self.assertEquals(v.units, units.WorkingUnit.fromString(unit), 'Unit unsuccessfully set for \'%s\''%unit)
-	
-	def test_convert(self):
-		q1 = units.Quantity(1,'m')
-		self.assertEqual( q1('km').value, 0.001, 'm -> km')
-
-	def test_scaling(self):
-		self.qf.setDimensionScaling(length=0.5,mass=2.)
-		
-		self.assertEquals(self.qf.getScalingForUnit('m'),0.5,"Invalid scaling for length.")
-		self.assertEquals(self.qf.getScalingForUnit('J'),0.5,"Invalid scaling for energy.")
-		
-		q = self.qf.fromStored(1.,'m','km')
-		self.assertEquals(q.value,500,'Incorrect extraction of stored data. %s'%str(q))
-		
-		q = self.qf.fromStored(1.,'J','{mu}eV')
-		self.assertEquals(q.value,8.010882435e-26,'Incorrect extraction of stored data. %s'%str(q))
-'''
-
 
 class TestQuantity(unittest.TestCase):
 	
@@ -225,6 +194,13 @@ class TestParameters(unittest.TestCase):
 		self.p << {'J_1': lambda t: t**2}
 		self.assertRaises(errors.ParameterNotInvertableError, self.p, J_1=1)
 		self.assertEqual(self.p('_J_1',J_1=1),1.)
+
+	def test_asvalue(self):
+		self.p(x=(1,'J'))
+		self.p * {'mass':(-1000,'kg')}
+		import numpy as np
+		self.assertEquals( self.p.asvalue(x=np.array([1,2,3])).tolist(),[-1000,-2000,-3000] )
+		self.assertEquals( self.p.asvalue(x=np.array([1,2,3]),y=np.array([1,2,3]))['y'].tolist(),[1,2,3] )
 
 if __name__ == '__main__':
     unittest.main()

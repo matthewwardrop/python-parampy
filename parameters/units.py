@@ -1,7 +1,7 @@
-
 from fractions import Fraction
-import errors
-from text import colour_text
+
+from . import errors
+from .text import colour_text
 
 class Unit(object):
 	'''

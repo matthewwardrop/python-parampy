@@ -19,6 +19,12 @@ class ParameterInvalidError(ParametersException):
 class ParameterRecursionError(ParametersException):
 	pass
 
+class ParameterNameWarning(UserWarning):
+	pass
+
+class ParameterInconsistentWarning(UserWarning):
+	pass
+
 # Symbolic evaluation errors
 class SymbolicEvaluationError(ParametersException):
 	pass

@@ -1,7 +1,8 @@
-from units import UnitsDispenser,Units
-from definitions import SIDispenser
 import math
 import errors
+
+from .units import UnitsDispenser,Units
+from .definitions import SIDispenser
 
 class Quantity(object):
 	'''

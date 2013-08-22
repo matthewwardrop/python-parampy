@@ -1,6 +1,6 @@
 # coding=utf-8
 
-from units import UnitsDispenser,Unit
+from .units import UnitsDispenser,Unit
 
 class SIDispenser(UnitsDispenser):
 	
