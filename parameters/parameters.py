@@ -374,7 +374,7 @@ class Parameters(object):
 		arguments = []
 		for arg in inspect.getargspec(f)[0]:
 			
-			if arg == param and arg not in kwargs:
+			if arg in (param,"_%s"%param) and param not in kwargs:
 				continue
 			
 			arguments.append(self.__get_param(arg,**kwargs))
@@ -396,7 +396,7 @@ class Parameters(object):
 			else:
 				pam = arg
 			
-			if pam != param:
+			if pam != param and pam != "_%s" % param:
 				inverse[arg] = self.__get_quantity(r[i],param=pam)
 		
 		return inverse
@@ -456,7 +456,7 @@ class Parameters(object):
 					if isinstance(param,Quantity):
 						raise errors.SymbolicEvaluationError("Symbolic expressions can only be evaluated when using scaled parameters. Attempted to use '%s' in '%s', which would yield a united quantity." % (sym,arg))
 					params[str(sym)] = self.__get_param(str(sym),**kwargs)
-				return arg.subs(params).evalf()
+				return float(arg.subs(params).evalf())
 			except errors.ParameterInvalidError, e:
 				raise e
 			except Exception, e:
