@@ -380,7 +380,7 @@ class Parameters(object):
 			arguments.append(self.__get_param(arg,**kwargs))
 		
 		r = f(*arguments)
-		if not isinstance(r,(tuple,list)):
+		if not isinstance(r,list):
 			r = [r]
 		
 		# If we are not performing the inverse operation
