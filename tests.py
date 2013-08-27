@@ -107,13 +107,13 @@ class TestParameters(unittest.TestCase):
 		
 	def test_inverse(self):
 		self.p(x=(2,'nm'),y=(2,'m'))
-		self.p << {'z':lambda x,y,z=None: x**2 + y**2 if z is None else (2,3)}
+		self.p << {'z':lambda x,y,z=None: x**2 + y**2 if z is None else [2,3]}
 		self.p(z=2)
 		self.assertEqual( self.p.x , SIQuantity( 2 ,'m'))
 		
 	def test_inverse_quantity(self):
 		self.p(x=(2,'nm'),y=(2,'m'))
-		self.p << {'z':lambda x,y,_z=None: x**2 + y**2 if _z is None else (2,3)}
+		self.p << {'z':lambda x,y,_z=None: x**2 + y**2 if _z is None else [2,3]}
 		self.assertEqual(self.p.z,self.p.x**2+self.p.y**2)
 		
 		self.p(z=10)
@@ -123,7 +123,7 @@ class TestParameters(unittest.TestCase):
 		self.p(x=2,k=1)
 		self.p << {
 			'y':lambda k, y=None: k+SIQuantity(1) if y is None else y,
-			'z':lambda x,y,z=None: x+y if z is None else (2,3)
+			'z':lambda x,y,z=None: x+y if z is None else [2,3]
 			}
 		self.p(z=1)
 		self.assertEqual( self.p.x, SIQuantity(2.) ) 

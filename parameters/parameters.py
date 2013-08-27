@@ -397,7 +397,7 @@ class Parameters(object):
 				pam = arg
 			
 			if pam != param and pam != "_%s" % param:
-				inverse[arg] = self.__get_quantity(r[i],param=pam)
+				inverse[self.__get_pam_name(arg)] = self.__get_quantity(r[i],param=pam)
 		
 		return inverse
 	
@@ -412,7 +412,7 @@ class Parameters(object):
 		# If tuple of (value,unit) is presented
 		if isinstance(value,(tuple,list)):
 			if len(value) != 2:
-				raise errors.QuantityCoercionError("Tuple specifications of quantities must be of form (<value>,<unit>). Was provided with %s ."%value)
+				raise errors.QuantityCoercionError("Tuple specifications of quantities must be of form (<value>,<unit>). Was provided with %s ."%str(value))
 			else:
 				q = Quantity(*value,dispenser=self.__units)
 		
