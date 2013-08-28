@@ -427,3 +427,6 @@ class Units(object):
 		if str(self) == str(other):
 			return True
 		return False
+	
+	def __hash__(self):
+		return hash(str(self))

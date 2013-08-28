@@ -486,7 +486,7 @@ class Parameters(object):
 		self.__check_valid_params(kwargs)
 		
 		for param,val in kwargs.items():
-			try:
+			#try:
 				if isinstance(val,(types.FunctionType,str)):
 					self.__parameters[param] = self.__check_function(param,self.__get_function(val))
 					self.__spec(**{param:self.__get_unit('')})
@@ -499,8 +499,8 @@ class Parameters(object):
 						self.__spec(**{param:self.__parameters[param].units})
 				if param in dir(type(self)):
 					warnings.warn(errors.ParameterNameWarning("Parameter '%s' will not be accessible using the attribute notation `p.%s`, as it conflicts with a method name of Parameters."%(param,param)))
-			except Exception, e:
-				raise errors.ParametersException("Could not add parameter %s. %s" % (param, e))
+			#except Exception, e:
+			#	raise errors.ParametersException("Could not add parameter %s. %s" % (param, e))
 	
 	def __update(self,**kwargs):
 		
