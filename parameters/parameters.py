@@ -179,6 +179,7 @@ class Parameters(object):
 	def __init__(self,dispenser=None,default_scaled=True,constants=False):
 		self.__parameters_spec = {}
 		self.__parameters = {}
+		self.__parameters_bounds = {}
 		self.__scalings = {}
 		self.__unit_scalings = []
 		self.__units = dispenser if dispenser is not None else SIDispenser()
@@ -431,6 +432,9 @@ class Parameters(object):
 				unit = self.__get_unit(''  if self.__parameters_spec.get(param) is None else self.__parameters_spec.get(param) )
 			q = Quantity(value*self.__unit_scaling(unit), unit,dispenser=self.__units)
 		
+		if isinstance(q, Quantity) and param is not None and param in self.__parameters_bounds:
+			q = self.__parameters_bounds[param].check(q)
+			
 		if not scaled:
 			return q
 		
@@ -687,6 +691,115 @@ class Parameters(object):
 			raise AttributeError
 		return self.__get(name)
 	
+	################## PARAMETER BOUNDS ####################################
+	
+	def set_bounds(self,bounds_dict,error=True,clip=False):
+		if not isinstance(bounds_dict,dict):
+			raise ValueError("Bounds must be specified as a dictionary. Provided with: '%s'." % (bounds))
+		for key,bounds in bounds_dict.items():
+			if not isinstance(bounds,list):
+				bounds = [bounds]
+			bounds_new = []
+			for bound in bounds:
+				if not isinstance(bound,tuple) or len(bound) != 2:
+					raise ValueError("Bounds must be of type 2-tuple. Received '%s'."%(bound))
+				
+				lower = bound[0]
+				if lower is None:
+					lower = (-np.inf,self.units(key))
+				lower = self.__get_quantity(lower,param=key)
+				
+				upper = bound[1]
+				if upper is None:
+					upper = (np.inf,self.units(key))
+				upper = self.__get_quantity(upper,param=key)
+				bounds_new.append( (lower,upper) )
+				
+			self.__parameters_bounds[key] = Bounds(key,self.units(key),bounds_new,error=error,clip=clip)
+	
+	def __getitem__(self,key):
+		return self.__parameters_bounds[key].bounds
+	
+	def __setitem__(self,key,value):
+		self.set_bounds({key:value})
+		
+	################## RANGE UTILITY #######################################
+	
+	def range(self,*args,**ranges):
+		values = None
+		static = {}
+		lists = {}
+		
+		count = None
+		for param,range in ranges.items():
+			range = self.__range_interpret(param,range)
+			if isinstance(range,(list,np.ndarray)):
+				lists[param] = range
+				count = len(range) if count is None else count
+				if count != len(range):
+					raise ValueError("Not all parameters have the same range")
+			else:
+				static[param] = range
+		
+		if count is None:
+			return self.__get(*args,**ranges)
+		
+		for i in xrange(count):
+			d = {}
+			d.update(static)
+			for key in lists:
+				d[key] = lists[key][i]
+			
+			argvs = self.__get(*args,**d)
+			
+			if len(args) == 1:
+				if values is None:
+					values = []
+				values.append(argvs)
+			else:
+				if values is None:
+					values = {}
+				for arg in args:
+					if arg not in values:
+						values[arg] = []
+					values[arg].append(argvs[arg])
+		
+		return values
+	
+	def __range_interpret(self,param,pam_range):
+		if isinstance(pam_range,tuple) and len(pam_range) in [3,4]:
+			start,end,count,sampler = 0,1,1,np.linspace
+			
+			if len(pam_range) == 4: # Then assume format (start, end, count, sampler), with sampler(start,stop,count)
+				start,end,count,sampler = pam_range
+			elif len(pam_range) == 3: # Then assume format (start, end, count)
+				start,end,count = pam_range
+			else:
+				raise ValueError, "Unknown range specification format: %s." % pam_range
+			
+			if isinstance(sampler,str):
+				if sampler == 'linear':
+					sampler = np.linspace
+				elif sampler == 'log':
+					def logspace(start,end,count):
+						logged = np.logspace(1,10,count)
+						return (logged-logged[0])*(end-start)/logged[-1]+start
+					sampler = logspace
+				elif sampler == 'invlog':
+					def logspace(start,end,count):
+						logged = np.logspace(1,10,count)
+						return (logged[::-1]-logged[0])*(end-start)/logged[-1]+start
+					sampler = logspace
+				else:
+					raise ValueError, "Unknown sampler: %s" % sampler
+			
+			return sampler(
+					self.__get_quantity(start,param=param,scaled=True),
+					self.__get_quantity(end,param=param,scaled=True),
+					count
+					)
+		return pam_range
+	
 	################## CONVERT UTILITY #####################################
 	def asvalue(self,**kwargs):
 		d = {}
@@ -802,3 +915,34 @@ class Parameters(object):
 		
 		f.close()
 
+class Bounds(object):
+	
+	def __init__(self,param,units,bounds,error=True,clip=False):
+		self.param = param
+		self.units = units
+		self.bounds = bounds
+		self.error = error
+		self.clip = clip
+	
+	def check(self,value):
+		within_bounds = False
+		for bound in self.bounds:
+			if bound[0] < value and bound[1] > value:
+				within_bounds = True
+				break
+		
+		if within_bounds:
+			return value
+		
+		if self.clip:
+			warnings.warn( errors.ParameterOutsideBoundsWarning("Value %s for '%s' outside of bounds %s. Clipping to nearest allowable value." % (value, self.param, self.bounds)) )
+			blist = []
+			for bound in self.bounds:
+				b.extend(bound)
+			dlist = map( lambda x: abs(x-value) , bounds)
+			return blist(np.where(dlist==np.min(dlist)))
+		elif self.error:
+			raise errors.ParameterOutsideBoundsError("Value %s for '%s' outside of bounds %s" % (value, self.param, self.bounds))
+		
+		warnings.warn( errors.ParameterOutsideBoundsWarning("Value %s for '%s' outside of bounds %s. Using value anyway." % (value, self.param, self.bounds)) )
+		return value

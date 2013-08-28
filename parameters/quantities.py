@@ -1,9 +1,11 @@
 import math
 import errors
+from functools import total_ordering
 
 from .units import UnitsDispenser,Units
 from .definitions import SIDispenser
 
+@total_ordering
 class Quantity(object):
 	'''
 	Quantity (value,units=None,dispenser=None)
@@ -96,6 +98,9 @@ class Quantity(object):
 		scale = other.units.scale(self.units)
 		return self.new(self.value-scale*other.value,self.units)
 	
+	def __abs__(self):
+		return self.new(abs(self.value),self.units)
+	
 	def __rsub__(self,other):
 		scale = other.units.scale(self.units)
 		return self.new(-self.value+scale*other.value,self.units)
@@ -119,6 +124,10 @@ class Quantity(object):
 			return False
 		except:
 			return False
+	
+	def __lt__(self,other):
+		scale = self.units.scale(other.units)
+		return self.value < other.value/scale
 	
 	def __truncate(self,value):
 		return round(value,int(-math.floor(math.log(abs(value),10))+10))

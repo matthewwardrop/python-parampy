@@ -210,6 +210,15 @@ class TestParameters(unittest.TestCase):
 		import numpy as np
 		self.assertEquals( self.p.asvalue(x=np.array([1,2,3])).tolist(),[-1000,-2000,-3000] )
 		self.assertEquals( self.p.asvalue(x=np.array([1,2,3]),y=np.array([1,2,3]))['y'].tolist(),[1,2,3] )
+	
+	def test_bounds(self):
+		self.p(x=(1,'J'))
+		self.p['x'] = ( (1,'J'), None )
+		self.assertRaises(errors.ParametersException,self.p,x=0)
+		
+		self.p(y=(2,'J'))
+		self.p.set_bounds({'y': [ (0, 1), (3,4) ]})
+		self.assertRaises(errors.ParameterOutsideBoundsError,self.p,'y')
 
 if __name__ == '__main__':
     unittest.main()

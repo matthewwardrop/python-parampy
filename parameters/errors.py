@@ -25,6 +25,15 @@ class ParameterNameWarning(UserWarning):
 class ParameterInconsistentWarning(UserWarning):
 	pass
 
+# Bound Errors
+class ParameterOutsideBoundsWarning(UserWarning):
+	pass
+
+class ParameterOutsideBoundsError(ParametersException):
+	pass
+
+
+
 # Symbolic evaluation errors
 class SymbolicEvaluationError(ParametersException):
 	pass
