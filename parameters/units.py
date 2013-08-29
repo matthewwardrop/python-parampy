@@ -119,6 +119,7 @@ class UnitsDispenser(object):
 	You can also call it with a Unit object, a Units object, or a dictionary
 	of Unit-power relations.
 	'''
+	
 	def __init__(self):
 		self._dimensions = {}
 		self._units = {}
@@ -258,6 +259,7 @@ class Units(object):
 	'''
 	
 	def __init__(self,units=None,dispenser=None):
+		self.__hash = hash(str(units))
 		self.__dispenser = dispenser
 		self.__units = self.__process_units(units)
 	
@@ -306,6 +308,7 @@ class Units(object):
 		raise errors.UnitInvalidError("Unrecognised unit description %s" % units)
 	
 	def __repr__(self):
+		
 		output = []
 		
 		items = sorted(self.__units.items())
@@ -327,27 +330,36 @@ class Units(object):
 					output += "/%s^%s" % (unit.abbr,abs(power))
 				else:
 					output += "/%s" % unit.abbr
+		
 		return output
 	
 	def scale(self,scale):
 		'''
 		Returns a float comparing the current units to the provided units.
 		'''
+		try:
+			return self.__scale_cache[scale]
+		except:
+			if getattr(self,'__scale_cache',None) is None:
+				self.__scale_cache = {}
+			
+			if isinstance(scale,str):
+				scale = self.__dispenser(scale)
 		
-		if isinstance(scale,str):
-			scale = self.__dispenser(scale)
+			dims = self.dimensions
+			dims_other = scale.dimensions
 		
-		dims = self.dimensions
-		dims_other = scale.dimensions
-		
-		# If the union of the sets of dimensions is less than the maximum size of the dimensions; then clearly the units are the same.
-		if len(set(dims.items()) & set(dims_other.items())) < max(len(dims),len(dims_other)):
-			raise errors.UnitConversionError("Invalid conversion. Units '%s' and '%s' do not match. %s" % (self, scale, set(dims.items()) & set(dims_other.items())))
-		
-		return self.rel / scale.rel
+			# If the union of the sets of dimensions is less than the maximum size of the dimensions; then clearly the units are the same.
+			if len(set(dims.items()) & set(dims_other.items())) < max(len(dims),len(dims_other)):
+				raise errors.UnitConversionError("Invalid conversion. Units '%s' and '%s' do not match. %s" % (self, scale, set(dims.items()) & set(dims_other.items())))
+			self.__scale_cache[scale] = self.rel / scale.rel
+			return self.__scale_cache[scale]
 	
 	@property
 	def dimensions(self):
+		#if getattr(self,'__dimensions',None) is not None:
+		#	return self.__dimensions.copy()
+		
 		dimensions = {}
 		for unit,power in self.__units.items():
 			for key,order in unit.dimensions.items():
@@ -355,7 +367,10 @@ class Units(object):
 		for key,value in list(dimensions.items()):
 			if value == 0:
 				del dimensions[key]
-		return dimensions
+			
+		#self.__dimensions = dimensions
+		
+		return dimensions#.copy()
 	
 	@property
 	def rel(self):
@@ -382,46 +397,43 @@ class Units(object):
 	
 	@property
 	def units(self):
-		return self.__units
+		return self.__units.copy()
 	
 	########### UNIT OPERATIONS ############################################
 	
-	def copy(self):
-		return Units(self.__units.copy(),self.__dispenser)
+	def __new(self,units):
+		return Units(units,self.__dispenser)
 	
-	def mulUnit(self,unit,power=1):
-		if unit in self.units:
-			self.units[unit] += power
-		else:
-			self.units[unit] = power
-		if self.units.get(unit,0) == 0:
-			del self.units[unit]
-		
-	def divUnit(self,unit,power=1):
-		if unit in self.units:
-			self.units[unit] -= power
-		else:
-			self.units[unit] = -power
-		if self.units.get(unit,0) == 0:
-			del self.units[unit]
+	def copy(self):
+		return Units(self.units,self.__dispenser)
+	
+	def __mul_units(self,target,additive):
+		for unit,power in additive.items():
+			target[unit] = target.get(unit,0) + power
+			
+			if target.get(unit,0) == 0:
+				del target[unit]
+		return target
+	
+	def __div_units(self,target,additive):
+		for unit,power in additive.items():
+			target[unit] = target.get(unit,0) - power
+			
+			if target.get(unit,0) == 0:
+				del target[unit]
+		return target
 	
 	def __mul__(self,other):
-		newUnit = self.copy()
-		for unit in other.units:
-			newUnit.mulUnit(unit,other.units[unit])
-		return newUnit
+		return self.__new( self.__mul_units(self.units,other.units) )
 	
 	def __div__(self,other):
-		newUnit = self.copy()
-		for unit in other.units:
-			newUnit.divUnit(unit,other.units[unit])
-		return newUnit
+		return self.__new( self.__div_units(self.units,other.units) )
 	
 	def __pow__(self,other):
-		newUnit = self.copy()
-		for unit in newUnit.units:
-			newUnit.units[unit] *= other
-		return newUnit
+		new_units = self.units
+		for unit in new_units:
+			new_units[unit] *= other
+		return self.__new(new_units)
 	
 	def __eq__(self,other):
 		if str(self) == str(other):
@@ -429,4 +441,4 @@ class Units(object):
 		return False
 	
 	def __hash__(self):
-		return hash(str(self))
+		return self.__hash

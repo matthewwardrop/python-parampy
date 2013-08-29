@@ -1,20 +1,22 @@
 import timeit
 import cProfile as profile
+import numpy as np
 
 from parameters import Parameters,SIDispenser,Quantity,SIQuantity,Unit, UnitsDispenser, Units, errors
 
-'''
+
 print "Performance Tests"
 print "-----------------"
 print
 print " - Simple Parameter Extraction"
-x = 123123124.214214124124
+x = 1e23
 p=Parameters()
 p(x=x)
 q = {'x':x}
+#p['x'] = (0,1e24)
 
 def testP():
-	return p.x
+	return p('x')
 def testD():
 	return q['x']
 def testR():
@@ -34,8 +36,9 @@ print
 print " - Functional Evalution (y=x^2)"
 p(y=lambda x: x**2)
 
+o = p.optimise('x^2')
 def testP():
-	return p('x^2')
+	return p(o)
 def testP2():
 	return p('y')
 def testD():
@@ -56,7 +59,7 @@ timer()
 profile.run('testP2()',filename='pam_functional.pstats')
 
 
-print "\n\n"'''
+print "\n\n"
 print "Unit Tests"
 print "-----------------"
 ###################### UNIT TESTS ##############################################
@@ -207,7 +210,6 @@ class TestParameters(unittest.TestCase):
 	def test_asvalue(self):
 		self.p(x=(1,'J'))
 		self.p * {'mass':(-1000,'kg')}
-		import numpy as np
 		self.assertEquals( self.p.asvalue(x=np.array([1,2,3])).tolist(),[-1000,-2000,-3000] )
 		self.assertEquals( self.p.asvalue(x=np.array([1,2,3]),y=np.array([1,2,3]))['y'].tolist(),[1,2,3] )
 	
@@ -219,6 +221,13 @@ class TestParameters(unittest.TestCase):
 		self.p(y=(2,'J'))
 		self.p.set_bounds({'y': [ (0, 1), (3,4) ]})
 		self.assertRaises(errors.ParameterOutsideBoundsError,self.p,'y')
+	
+	def test_ranges(self):
+		self.assertEqual( self.p.range('_J_1',J_1=[0.1,0.2,0.4]), [0.1,0.2,0.4] )
+		
+		self.p(x=1)
+		self.p << {'y':'_x^2'}
+		self.assertEqual( np.round(self.p.range('_y',x=[0.1,0.2,0.3]),4).tolist(), [0.01,0.04,0.09] )
 
 if __name__ == '__main__':
     unittest.main()

@@ -179,12 +179,15 @@ class Parameters(object):
 	def __init__(self,dispenser=None,default_scaled=True,constants=False):
 		self.__parameters_spec = {}
 		self.__parameters = {}
-		self.__parameters_bounds = {}
+		self.__parameters_bounds = None
 		self.__scalings = {}
 		self.__unit_scalings = []
 		self.__units = dispenser if dispenser is not None else SIDispenser()
 		self.__units_custom = []
 		self.__default_scaled = default_scaled
+		
+		self.__cache_deps = {}
+		self.__cache_sups = {}
 		
 		self.__scaling_cache = {}
 		
@@ -252,17 +255,32 @@ class Parameters(object):
 		
 		self.__process_override(kwargs)
 		
-		return self.__get_params(*args,**kwargs)
-	
-	def __get_params(self,*args,**kwargs):
 		
 		if len(args) == 1:
-			return self.__get_param(args[0],**kwargs)
+			result = self.__get_param(args[0],**kwargs)
+			if self.__parameters_bounds is not None:
+				kwargs[args[0]] = result
+				self.__forward_check_bounds(args,kwargs)
+			return result
 		
+		
+		results = self.__get_params(*args,**kwargs)
+		kwargs.update(results)
+		self.__forward_check_bounds(args,kwargs)
+		return results
+	
+	def __forward_check_bounds(self,args,kwargs):
+		checked = []
+		for arg in args:
+			if isinstance(arg,str):
+				for pam in self.__get_pam_sups(arg):
+					if pam in self.__parameters_bounds:
+						self.__get(pam,**kwargs)
+	
+	def __get_params(self,*args,**kwargs):
 		rv = {}
 		for arg in args:
 			rv[self.__get_pam_name(arg)] = self.__get_param(arg,**kwargs)
-		
 		return rv
 		
 	
@@ -312,6 +330,34 @@ class Parameters(object):
 		if not self.__default_scaled:
 			return param
 		return "_%s"%param
+	
+	def __get_pam_deps(self,param):
+		try:
+			return self.__cache_deps[param]
+		except:
+			if param not in self.__parameters:
+				return []
+		
+			value = self.__parameters[param]
+			if isinstance(value,types.FunctionType):
+				self.__cache_deps[param] = inspect.getargspec(value).args
+			else:
+				self.__cache_deps[param] = []
+		
+			return self.__cache_deps[param]
+	
+	def __get_pam_sups(self,param):
+		try:
+			return self.__cache_sups[param]
+		except:
+			sups = []
+			for param2 in self.__parameters:
+				if param in self.__get_pam_deps(param2):
+					sups.append(param2)
+		
+			if sups or param in self.__parameters:
+				self.__cache_sups[param] = sups
+			return sups
 	
 	def __process_override(self,kwargs,restrict=None,abort_noninvertable=False):
 		'''
@@ -411,7 +457,7 @@ class Parameters(object):
 		q = None
 		
 		# If tuple of (value,unit) is presented
-		if isinstance(value,(tuple,list)):
+		if isinstance(value,tuple):
 			if len(value) != 2:
 				raise errors.QuantityCoercionError("Tuple specifications of quantities must be of form (<value>,<unit>). Was provided with %s ."%str(value))
 			else:
@@ -430,9 +476,11 @@ class Parameters(object):
 				unit = self.__get_unit(unit)
 			else:
 				unit = self.__get_unit(''  if self.__parameters_spec.get(param) is None else self.__parameters_spec.get(param) )
+			if isinstance(value,list):
+				value = np.array(value)
 			q = Quantity(value*self.__unit_scaling(unit), unit,dispenser=self.__units)
 		
-		if isinstance(q, Quantity) and param is not None and param in self.__parameters_bounds:
+		if self.__parameters_bounds is not None and isinstance(q, Quantity) and param is not None and param in self.__parameters_bounds:
 			q = self.__parameters_bounds[param].check(q)
 			
 		if not scaled:
@@ -444,8 +492,6 @@ class Parameters(object):
 	def __eval(self,arg,**kwargs):
 		if isinstance(arg,types.FunctionType):
 			params = self.__get_params(*inspect.getargspec(arg)[0],**kwargs)
-			if not isinstance(params,dict):
-				params = {self.__get_pam_name(inspect.getargspec(arg)[0][0]): params}
 			return arg(* (val for val in map(lambda x: params[self.__get_pam_name(x)],inspect.getargspec(arg)[0]) ) )
 		elif isinstance(arg,str) or arg.__class__.__module__.startswith('sympy'):
 			try:
@@ -483,24 +529,24 @@ class Parameters(object):
 	
 	def __set(self,**kwargs):
 		
+		self.__cache_deps = {}
+		self.__cache_sups = {}
+		
 		self.__check_valid_params(kwargs)
 		
 		for param,val in kwargs.items():
-			#try:
-				if isinstance(val,(types.FunctionType,str)):
-					self.__parameters[param] = self.__check_function(param,self.__get_function(val))
-					self.__spec(**{param:self.__get_unit('')})
-				elif isinstance(val,(list,tuple)) and isinstance(val[0],(types.FunctionType,str)):
-					self.__parameters[param] = self.__check_function(param,self.__get_function(val[0]))
-					self.__spec(**{param:self.__get_unit(val[1])})
-				else:
-					self.__parameters[param] = self.__get_quantity(val,param=param)
-					if isinstance(self.__parameters[param],Quantity):
-						self.__spec(**{param:self.__parameters[param].units})
-				if param in dir(type(self)):
-					warnings.warn(errors.ParameterNameWarning("Parameter '%s' will not be accessible using the attribute notation `p.%s`, as it conflicts with a method name of Parameters."%(param,param)))
-			#except Exception, e:
-			#	raise errors.ParametersException("Could not add parameter %s. %s" % (param, e))
+			if isinstance(val,(types.FunctionType,str)):
+				self.__parameters[param] = self.__check_function(param,self.__get_function(val))
+				self.__spec(**{param:self.__get_unit('')})
+			elif isinstance(val,(list,tuple)) and isinstance(val[0],(types.FunctionType,str)):
+				self.__parameters[param] = self.__check_function(param,self.__get_function(val[0]))
+				self.__spec(**{param:self.__get_unit(val[1])})
+			else:
+				self.__parameters[param] = self.__get_quantity(val,param=param)
+				if isinstance(self.__parameters[param],Quantity):
+					self.__spec(**{param:self.__parameters[param].units})
+			if param in dir(type(self)):
+				warnings.warn(errors.ParameterNameWarning("Parameter '%s' will not be accessible using the attribute notation `p.%s`, as it conflicts with a method name of Parameters."%(param,param)))
 	
 	def __update(self,**kwargs):
 		
@@ -693,7 +739,7 @@ class Parameters(object):
 	
 	################## PARAMETER BOUNDS ####################################
 	
-	def set_bounds(self,bounds_dict,error=True,clip=False):
+	def set_bounds(self,bounds_dict,error=True,clip=False,inclusive=True):
 		if not isinstance(bounds_dict,dict):
 			raise ValueError("Bounds must be specified as a dictionary. Provided with: '%s'." % (bounds))
 		for key,bounds in bounds_dict.items():
@@ -714,11 +760,16 @@ class Parameters(object):
 					upper = (np.inf,self.units(key))
 				upper = self.__get_quantity(upper,param=key)
 				bounds_new.append( (lower,upper) )
-				
-			self.__parameters_bounds[key] = Bounds(key,self.units(key),bounds_new,error=error,clip=clip)
+			
+			if self.__parameters_bounds is None:
+				self.__parameters_bounds = {}
+			self.__parameters_bounds[key] = Bounds(key,self.units(key),bounds_new,error=error,clip=clip,inclusive=inclusive)
 	
 	def __getitem__(self,key):
-		return self.__parameters_bounds[key].bounds
+		try:
+			return self.__parameters_bounds[key].bounds
+		except:
+			return None
 	
 	def __setitem__(self,key,value):
 		self.set_bounds({key:value})
@@ -917,22 +968,23 @@ class Parameters(object):
 
 class Bounds(object):
 	
-	def __init__(self,param,units,bounds,error=True,clip=False):
+	def __init__(self,param,units,bounds,error=True,clip=False,inclusive=True):
 		self.param = param
 		self.units = units
 		self.bounds = bounds
 		self.error = error
 		self.clip = clip
+		self.inclusive = inclusive
 	
 	def check(self,value):
-		within_bounds = False
-		for bound in self.bounds:
-			if bound[0] < value and bound[1] > value:
-				within_bounds = True
-				break
-		
-		if within_bounds:
-			return value
+		if self.inclusive:
+			for bound in self.bounds:
+				if bound[0] <= value and bound[1] >= value:
+					return value
+		else:
+			for bound in self.bounds:
+				if bound[0] < value and bound[1] > value:
+					return value
 		
 		if self.clip:
 			warnings.warn( errors.ParameterOutsideBoundsWarning("Value %s for '%s' outside of bounds %s. Clipping to nearest allowable value." % (value, self.param, self.bounds)) )
