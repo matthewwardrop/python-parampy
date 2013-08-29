@@ -194,8 +194,8 @@ class TestParameters(unittest.TestCase):
 		self.assertEqual( self.p('_x',x=(1,'J')), 2.0 )
 	
 	def test_constants(self):
-		self.assertEqual(self.p._h,6.62606957e-34)
-		self.assertEqual(self.p.h,SIQuantity(6.62606957e-34,'J*s'))
+		self.assertEqual(self.p._c_h,6.62606957e-34)
+		self.assertEqual(self.p.c_h,SIQuantity(6.62606957e-34,'J*s'))
 	
 	def test_bad_name(self):
 		def bad():
