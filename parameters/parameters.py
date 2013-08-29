@@ -155,13 +155,78 @@ class Parameters(object):
 		converts a scaled parameter with dimension of 'time' to a Quantity
 		with units of 'ms'.
 	
+	## Parameter Bounding
+		
+		Sometimes it is necessary to be sure that a parameter is within 
+		certain bounds. Parameter objects can ensure this for you, with
+		minimal overhead in performance. To set a bound you can use:
+		>>> p['x'] = (0,100)
+		If one of the extremum values is None, it is set to -infinity or 
+		+infinity, depending upon whether it is the upper or lower bound.
+		If a disjointed bound is necessary, you can use:
+		>>> p['x'] = [ (None,10), (15,None) ]
+		
+		If you need more power over the bounds, you can use the 
+		set_bounds method. In addition to the bounds described above, it
+		accepts three keyword arguments: error, clip and inclusive.
+			error (True) : This keyword determines whether a parameter
+				found to be outside this bound should trigger an error;
+				or if clip is True, whether a warning should be generated.
+			clip (False) : If true, the parameter will be clipped to 
+				the nearest bound edge (assumes inclusive is True).
+				If error is true, a warning will be generated.
+			inclusive (True) : Whether the upper and lower bounds are 
+				to be included in the range.
+		>>> p.set_bounds( {'x':(0,100)}, error=True, clip=True, inclusive=True )
+	
+	## Parameter Ranges
+		
+		It is often the case that one would like to iterate over various 
+		parameter ranges, or to investigate how one parameter changes
+		relative to another. The Parameters object makes this easy with
+		the 'range' method. The range method has similar syntax to the
+		parameter extraction method; but is kept separate for clarity and
+		efficiency.
+		
+		>>> p << {'y':lamdba x:x**2}
+		>>> p.range( 'y', x = [0,1,2,3] )
+		This will return: [0,1.,4.,9.].
+		
+		Arrays may be input as lists or numpy ndarrays; and returned arrays
+		are typically numpy arrays.
+		
+		The values for parameter overrides can also be provided in a more
+		abstract notation; such that the range will be generated when the 
+		function is called. Parameters accepts ranges in the following forms:
+		 - (<start>,<stop>,<count>) ; which will generate a linear array
+		   from <start> to <stop> with <count> values.
+		 - (<start>,<stop>,<count>,<sampler>) ; which is as above, but where
+		   the <sampler> is expected to generate the array. <sampler> can
+		   be a string (either 'linear','log','invlog' for linear, logarithmic,
+		   or inverse logarithmic distributions respectively); or a function
+		   which takes arguments <start>,<stop>,<count> .
+		
+		>>> p.range( 'y', x = (0,10,2) )
+		returns: [0.,100.]
+		
+		It is also possible to determine multiple parameters at once.
+		>>> p.range( 'x', 'y', x=(0,10,2) )
+		returns: {'x':[0.,10.], 'y':[0.,100.]}
+		
+		If multiple overrides are provided, they must either be constant 
+		or have the same length.
+		>>> p.range( 'x', x=(0,10,2), z=1 )
+		is OKAY
+		>>> p.range( 'x', x=(0,10,2), z=[1,2,3] )
+		is NOT okay.
+	
 	## Physical Constants
 		
 		To make life easier, Parameters instances also broadcasts the physical
 		constants defined in "physical_constants.py" when using an SIDispenser
 		if constants is set to 'True'. These constants function just as 
 		any other parameter, and can be overriden. For example:
-		>>> p.hbar
+		>>> p.c_hbar
 	
 	## Loading and Saving
 		
@@ -172,9 +237,6 @@ class Parameters(object):
 		>>> p >> "filename.py"
 	
 	"""
-	# Parameters are retrieved as:
-	# pams.<var> returns stored value or function
-	# pams.<var>(<pams>)
 	
 	def __init__(self,dispenser=None,default_scaled=True,constants=False):
 		self.__parameters_spec = {}
@@ -987,7 +1049,8 @@ class Bounds(object):
 					return value
 		
 		if self.clip:
-			warnings.warn( errors.ParameterOutsideBoundsWarning("Value %s for '%s' outside of bounds %s. Clipping to nearest allowable value." % (value, self.param, self.bounds)) )
+			if self.error:
+				warnings.warn( errors.ParameterOutsideBoundsWarning("Value %s for '%s' outside of bounds %s. Clipping to nearest allowable value." % (value, self.param, self.bounds)) )
 			blist = []
 			for bound in self.bounds:
 				b.extend(bound)

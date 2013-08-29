@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(name='python-parameters',
-      version='0.8',
+      version='0.9',
       description='A parameter manager that keeps track of physical (or numerical) quantities, and the relationships between them.',
       author='Matthew Wardrop',
       author_email='mister.wardrop@gmail.com',
@@ -11,6 +11,7 @@ setup(name='python-parameters',
       #package_dir={'parameters':'.'},
       download_url='https://github.com/themadhatter/python-parameters',
       packages=['parameters'],
+      requires=['numpy','sympy','scipy'],
       license='''The MIT License (MIT)
 
 Copyright (c) 2013 Matthew Wardrop
