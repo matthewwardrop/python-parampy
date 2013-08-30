@@ -250,6 +250,7 @@ class Parameters(object):
 		
 		self.__cache_deps = {}
 		self.__cache_sups = {}
+		self.__cache_scaled = {}
 		
 		self.__scaling_cache = {}
 		
@@ -352,8 +353,10 @@ class Parameters(object):
 		as in `kwargs`.
 		'''
 		
+		pam_name = self.__get_pam_name(arg)
+		
 		# If the parameter is actually a function
-		if not isinstance(arg,str) or (self.__get_pam_name(arg) not in kwargs and self.__get_pam_name(arg) not in self.__parameters):
+		if not isinstance(arg,str) or (pam_name not in kwargs and pam_name not in self.__parameters):
 			return self.__eval(arg,**kwargs)
 			
 		else:
@@ -361,17 +364,23 @@ class Parameters(object):
 			if arg[:1] == "_": #.startswith("_"):
 				arg = arg[1:]
 				scaled=not scaled
-			
+		
 			# If the parameter is temporarily overridden, return the override value
 			if arg in kwargs:
 				return self.__get_quantity(kwargs[arg],param=arg,scaled=scaled)
-		
+	
 			# If the parameter is a function, evaluate it with local parameter values (except where overridden in kwargs)
 			elif isinstance(self.__parameters[arg],types.FunctionType):
 				return self.__get_quantity(self.__eval_function(arg,**kwargs)[arg],param=arg,scaled=scaled)
-		
+	
 			# Otherwise, return the value currently stored in the parameters
 			else:
+				if scaled:
+					try:
+						return self.__cache_scaled[arg]
+					except:
+						self.__cache_scaled[arg] = self.__get_quantity(self.__parameters[arg],param=arg,scaled=scaled)
+						return self.__cache_scaled[arg]
 				return self.__get_quantity(self.__parameters[arg],param=arg,scaled=scaled)
 	
 	def __get_pam_name(self,param):

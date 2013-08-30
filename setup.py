@@ -15,12 +15,26 @@ ext_modules = [ ]
 
 if use_cython:
     ext_modules += [
+        Extension("parameters.__init__", [ "parameters/__init__.pyx" ]),
         Extension("parameters.parameters", [ "parameters/parameters.pyx" ]),
+        Extension("parameters.definitions", [ "parameters/definitions.pyx" ]),
+        Extension("parameters.errors", [ "parameters/errors.pyx" ]),
+        Extension("parameters.physical_constants", [ "parameters/physical_constants.pyx" ]),
+        Extension("parameters.quantities", [ "parameters/quantities.pyx" ]),
+        Extension("parameters.text", [ "parameters/text.pyx" ]),
+        Extension("parameters.units", [ "parameters/units.pyx" ]),
     ]
     cmdclass.update({ 'build_ext': build_ext })
 else:
     ext_modules += [
+        Extension("parameters.__init__", [ "parameters/__init__.c" ]),
         Extension("parameters.parameters", [ "parameters/parameters.c" ]),
+        Extension("parameters.definitions", [ "parameters/definitions.c" ]),
+        Extension("parameters.errors", [ "parameters/errors.c" ]),
+        Extension("parameters.physical_constants", [ "parameters/physical_constants.c" ]),
+        Extension("parameters.quantities", [ "parameters/quantities.c" ]),
+        Extension("parameters.text", [ "parameters/text.c" ]),
+        Extension("parameters.units", [ "parameters/units.c" ]),
     ]
 
 setup(name='python-parameters',
