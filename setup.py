@@ -15,7 +15,6 @@ ext_modules = [ ]
 
 if use_cython:
     ext_modules += [
-        Extension("parameters.__init__", [ "parameters/__init__.pyx" ]),
         Extension("parameters.parameters", [ "parameters/parameters.pyx" ]),
         Extension("parameters.definitions", [ "parameters/definitions.pyx" ]),
         Extension("parameters.errors", [ "parameters/errors.pyx" ]),
@@ -27,7 +26,6 @@ if use_cython:
     cmdclass.update({ 'build_ext': build_ext })
 else:
     ext_modules += [
-        Extension("parameters.__init__", [ "parameters/__init__.c" ]),
         Extension("parameters.parameters", [ "parameters/parameters.c" ]),
         Extension("parameters.definitions", [ "parameters/definitions.c" ]),
         Extension("parameters.errors", [ "parameters/errors.c" ]),
