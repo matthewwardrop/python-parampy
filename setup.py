@@ -1,6 +1,27 @@
 #!/usr/bin/env python2
 
 from distutils.core import setup
+from distutils.extension import Extension
+
+try:
+    from Cython.Distutils import build_ext
+except ImportError:
+    use_cython = False
+else:
+    use_cython = True
+
+cmdclass = { }
+ext_modules = [ ]
+
+if use_cython:
+    ext_modules += [
+        Extension("parameters.parameters", [ "parameters/parameters.pyx" ]),
+    ]
+    cmdclass.update({ 'build_ext': build_ext })
+else:
+    ext_modules += [
+        Extension("parameters.parameters", [ "parameters/parameters.c" ]),
+    ]
 
 setup(name='python-parameters',
       version='0.9',
@@ -11,6 +32,8 @@ setup(name='python-parameters',
       #package_dir={'parameters':'.'},
       download_url='https://github.com/themadhatter/python-parameters',
       packages=['parameters'],
+      cmdclass = cmdclass,
+      ext_modules = ext_modules,
       requires=['numpy','sympy','scipy'],
       license='''The MIT License (MIT)
 

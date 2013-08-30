@@ -790,9 +790,9 @@ class Parameters(object):
 		return "< Parameters with %d definitions >" % len(self.__parameters)
 		
 	def __dir__(self):
-	    res = dir(type(self)) + list(self.__dict__.keys())
-	    res.extend(self.__parameters.keys())
-	    return res
+		res = dir(type(self)) + list(self.__dict__.keys())
+		res.extend(self.__parameters.keys())
+		return res
 	
 	def __getattr__(self,name):
 		if name[:2] == "__":
@@ -803,7 +803,7 @@ class Parameters(object):
 	
 	def set_bounds(self,bounds_dict,error=True,clip=False,inclusive=True):
 		if not isinstance(bounds_dict,dict):
-			raise ValueError("Bounds must be specified as a dictionary. Provided with: '%s'." % (bounds))
+			raise ValueError("Bounds must be specified as a dictionary. Provided with: '%s'." % (bounds_dict))
 		for key,bounds in bounds_dict.items():
 			if not isinstance(bounds,list):
 				bounds = [bounds]
@@ -1011,7 +1011,7 @@ class Parameters(object):
 		# Export unit scalings
 		f.write( "unit_scalings = {\n" )
 		for scaling in self.__unit_scalings:
-			f.write("%s,\n"%unit)
+			f.write("%s,\n"%scaling)
 		f.write( "}\n\n" )
 		
 		# Export custom units
@@ -1053,9 +1053,9 @@ class Bounds(object):
 				warnings.warn( errors.ParameterOutsideBoundsWarning("Value %s for '%s' outside of bounds %s. Clipping to nearest allowable value." % (value, self.param, self.bounds)) )
 			blist = []
 			for bound in self.bounds:
-				b.extend(bound)
-			dlist = map( lambda x: abs(x-value) , bounds)
-			return blist(np.where(dlist==np.min(dlist)))
+				blist.extend(bound)
+			dlist = map( lambda x: abs(x-value) , self.bounds)
+			return np.array(blist)[np.where(dlist==np.min(dlist))]
 		elif self.error:
 			raise errors.ParameterOutsideBoundsError("Value %s for '%s' outside of bounds %s" % (value, self.param, self.bounds))
 		
