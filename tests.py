@@ -16,7 +16,7 @@ q = {'x':x}
 #p['x'] = (0,1e24)
 
 def testP():
-	return p('x')
+	return p('x',x=1)
 def testD():
 	return q['x']
 def testR():

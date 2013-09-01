@@ -364,15 +364,15 @@ class Parameters(object):
 			if arg[:1] == "_": #.startswith("_"):
 				arg = arg[1:]
 				scaled=not scaled
-		
+	
 			# If the parameter is temporarily overridden, return the override value
 			if arg in kwargs:
 				return self.__get_quantity(kwargs[arg],param=arg,scaled=scaled)
-	
+
 			# If the parameter is a function, evaluate it with local parameter values (except where overridden in kwargs)
 			elif isinstance(self.__parameters[arg],types.FunctionType):
 				return self.__get_quantity(self.__eval_function(arg,**kwargs)[arg],param=arg,scaled=scaled)
-	
+
 			# Otherwise, return the value currently stored in the parameters
 			else:
 				if scaled:
@@ -466,7 +466,7 @@ class Parameters(object):
 							if key in kwargs and vals[key] != kwargs[key] or key in new and vals[key] != new[key]:
 								raise errors.ParameterOverSpecifiedError("Parameter %s is overspecified, with contradictory values." % key)
 						new.update(vals)
-					except errors.ParameterNotInvertableError, e:
+					except errors.ParameterNotInvertableError as e:
 						if abort_noninvertable:
 							raise e
 						warnings.warn(errors.ParameterInconsistentWarning("Parameters are probably inconsistent as %s was overridden, but is not invertable, and so the underlying variables (%s) have not been updated." % (pam, ','.join(inspect.getargspec(self.__parameters.get(pam)).args))))
@@ -563,7 +563,7 @@ class Parameters(object):
 	def __eval(self,arg,**kwargs):
 		if isinstance(arg,types.FunctionType):
 			params = self.__get_params(*inspect.getargspec(arg)[0],**kwargs)
-			return arg(* (val for val in map(lambda x: params[self.__get_pam_name(x)],inspect.getargspec(arg)[0]) ) )
+			return arg(* (val for val in [params[self.__get_pam_name(x)] for x in inspect.getargspec(arg)[0]] ) )
 		elif isinstance(arg,str) or arg.__class__.__module__.startswith('sympy'):
 			try:
 				if isinstance(arg,str):
@@ -578,12 +578,12 @@ class Parameters(object):
 						raise errors.SymbolicEvaluationError("Symbolic expressions can only be evaluated when using scaled parameters. Attempted to use '%s' in '%s', which would yield a united quantity." % (sym,arg))
 					params[str(sym)] = self.__get_param(str(sym),**kwargs)
 				return float(arg.subs(params).evalf())
-			except errors.ParameterInvalidError, e:
+			except errors.ParameterInvalidError as e:
 				raise e
-			except Exception, e:
+			except Exception as e:
 				raise errors.SymbolicEvaluationError("Error evaluating symbolic statement '%s'. The message from SymPy was: `%s`." % (arg,e))
 		
-		raise KeyError, "There is no parameter, and no interpretation, of '%s' which is recognised by Parameters." % arg
+		raise errors.ParameterInvalidError("There is no parameter, and no interpretation, of '%s' which is recognised by Parameters." % arg)
 	
 	################ SET PARAMETERS ############################################
 	
@@ -853,12 +853,12 @@ class Parameters(object):
 		lists = {}
 		
 		count = None
-		for param,range in ranges.items():
-			range = self.__range_interpret(param,range)
-			if isinstance(range,(list,np.ndarray)):
-				lists[param] = range
-				count = len(range) if count is None else count
-				if count != len(range):
+		for param,pam_range in ranges.items():
+			pam_range = self.__range_interpret(param,pam_range)
+			if isinstance(pam_range,(list,np.ndarray)):
+				lists[param] = pam_range
+				count = len(pam_range) if count is None else count
+				if count != len(pam_range):
 					raise ValueError("Not all parameters have the same range")
 			else:
 				static[param] = range
@@ -866,7 +866,7 @@ class Parameters(object):
 		if count is None:
 			return self.__get(*args,**ranges)
 		
-		for i in xrange(count):
+		for i in range(count):
 			d = {}
 			d.update(static)
 			for key in lists:
@@ -897,7 +897,7 @@ class Parameters(object):
 			elif len(pam_range) == 3: # Then assume format (start, end, count)
 				start,end,count = pam_range
 			else:
-				raise ValueError, "Unknown range specification format: %s." % pam_range
+				raise ValueError ("Unknown range specification format: %s." % pam_range)
 			
 			if isinstance(sampler,str):
 				if sampler == 'linear':
@@ -913,7 +913,7 @@ class Parameters(object):
 						return (logged[::-1]-logged[0])*(end-start)/logged[-1]+start
 					sampler = logspace
 				else:
-					raise ValueError, "Unknown sampler: %s" % sampler
+					raise ValueError( "Unknown sampler: %s" % sampler )
 			
 			return sampler(
 					self.__get_quantity(start,param=param,scaled=True),
