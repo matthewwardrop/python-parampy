@@ -533,11 +533,8 @@ class Parameters(object):
 			return value
 		else:
 			if scaled:
-				if t in (float,complex,long,int,np.ndarray):
-					q = value
-			
 				# If tuple of (value,unit) is presented
-				elif t is tuple:
+				if t is tuple:
 					if len(value) != 2:
 						raise errors.QuantityCoercionError("Tuple specifications of quantities must be of form (<value>,<unit>). Was provided with %s ."%str(value))
 					else:
@@ -546,9 +543,23 @@ class Parameters(object):
 			
 				elif isinstance(value, Quantity):
 					q = value.value/self.__unit_scaling(value.units)
+				
+				else: #if t in (float,complex,long,int,np.ndarray):
+					q = value
 			
 			else:
-				if t in (float,complex,long,int,np.ndarray):
+				
+				# If tuple of (value,unit) is presented
+				if t is tuple:
+					if len(value) != 2:
+						raise errors.QuantityCoercionError("Tuple specifications of quantities must be of form (<value>,<unit>). Was provided with %s ."%str(value))
+					else:
+						q = Quantity(*value,dispenser=self.__units)
+		
+				elif isinstance(value, Quantity):
+					q = value
+				
+				else: #if t in (float,complex,long,int,np.ndarray):
 					if unit is None and param is None:
 						unit = self.__get_unit('')
 					elif unit is not None:
@@ -558,16 +569,6 @@ class Parameters(object):
 					if isinstance(value,list):
 						value = np.array(value)
 					q = Quantity(value*self.__unit_scaling(unit), unit,dispenser=self.__units)
-		
-				# If tuple of (value,unit) is presented
-				elif t is tuple:
-					if len(value) != 2:
-						raise errors.QuantityCoercionError("Tuple specifications of quantities must be of form (<value>,<unit>). Was provided with %s ."%str(value))
-					else:
-						q = Quantity(*value,dispenser=self.__units)
-		
-				elif isinstance(value, Quantity):
-					q = value
 		
 		if q is None:
 			raise errors.QuantityValueError("Unknown value type '%s' with value: '%s'" % (t,value))
