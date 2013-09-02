@@ -31,8 +31,9 @@ class ParameterOutsideBoundsWarning(UserWarning):
 
 class ParameterOutsideBoundsError(ParametersException):
 	pass
-
-
+	
+class ParameterBoundsUncheckedWarning(UserWarning):
+	pass
 
 # Symbolic evaluation errors
 class SymbolicEvaluationError(ParametersException):

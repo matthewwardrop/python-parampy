@@ -13,7 +13,7 @@ x = 1e23
 p=Parameters()
 p(x=x)
 q = {'x':x}
-p['x'] = (0,1e24)
+#p['x'] = (0,1e24)
 
 def testP():
 	return p('x',x=1)
