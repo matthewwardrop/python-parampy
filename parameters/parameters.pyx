@@ -445,31 +445,31 @@ class Parameters(object):
 		
 		# Check to see whether override arguments are functions; and if so
 		# first evaluate them.
-		for pam,val in list(kwargs.items()):
-			if pam in restrict:
-				if isinstance(val,str):
-					val = self.__get_function(val)
-				if isinstance(val,types.FunctionType):
-					new = kwargs.copy()
-					del new[pam]
-					kwargs[pam] = self.__get_param(val,**new)
+		for pam in restrict:
+			val = kwargs[pam]
+			t = type(val)
+			if t is str:
+				val = self.__get_function(val)
+			if t is types.FunctionType:
+				new = kwargs.copy()
+				del new[pam]
+				kwargs[pam] = self.__get_param(val,**new)
 		
 		# Now, ratify these changes through the parameter sets to ensure
 		# that the effects of these overrides is properly implemented
 		new = {}
-		for pam,val in kwargs.items():
-			if pam in restrict:
-				if isinstance(self.__parameters.get(pam),types.FunctionType):
-					try:
-						vals = self.__eval_function(pam,**kwargs)
-						for key in vals:
-							if key in kwargs and vals[key] != kwargs[key] or key in new and vals[key] != new[key]:
-								raise errors.ParameterOverSpecifiedError("Parameter %s is overspecified, with contradictory values." % key)
-						new.update(vals)
-					except errors.ParameterNotInvertableError as e:
-						if abort_noninvertable:
-							raise e
-						warnings.warn(errors.ParameterInconsistentWarning("Parameters are probably inconsistent as %s was overridden, but is not invertable, and so the underlying variables (%s) have not been updated." % (pam, ','.join(inspect.getargspec(self.__parameters.get(pam)).args))))
+		for pam in restrict:
+			if type(self.__parameters.get(pam)) is types.FunctionType:
+				try:
+					vals = self.__eval_function(pam,**kwargs)
+					for key in vals:
+						if key in kwargs and vals[key] != kwargs[key] or key in new and vals[key] != new[key]:
+							raise errors.ParameterOverSpecifiedError("Parameter %s is overspecified, with contradictory values." % key)
+					new.update(vals)
+				except errors.ParameterNotInvertableError as e:
+					if abort_noninvertable:
+						raise e
+					warnings.warn(errors.ParameterInconsistentWarning("Parameters are probably inconsistent as %s was overridden, but is not invertable, and so the underlying variables (%s) have not been updated." % (pam, ','.join(inspect.getargspec(self.__parameters.get(pam)).args))))
 		
 		kwargs.update(new)
 		self.__process_override(kwargs,restrict=new.keys())
@@ -527,38 +527,55 @@ class Parameters(object):
 		
 		q = None
 		
-		# If tuple of (value,unit) is presented
-		if isinstance(value,tuple):
-			if len(value) != 2:
-				raise errors.QuantityCoercionError("Tuple specifications of quantities must be of form (<value>,<unit>). Was provided with %s ."%str(value))
-			else:
-				q = Quantity(*value,dispenser=self.__units)
+		t = type(value)
 		
-		elif isinstance(value, Quantity):
-			q = value
-		
-		elif isinstance(value,types.FunctionType):
-			q = value
-		
+		if t is types.FunctionType:
+			return value
 		else:
-			if unit is None and param is None:
-				unit = self.__get_unit('')
-			elif unit is not None:
-				unit = self.__get_unit(unit)
-			else:
-				unit = self.__get_unit(''  if self.__parameters_spec.get(param) is None else self.__parameters_spec.get(param) )
-			if isinstance(value,list):
-				value = np.array(value)
-			q = Quantity(value*self.__unit_scaling(unit), unit,dispenser=self.__units)
-		
-		if self.__parameters_bounds is not None and isinstance(q, Quantity) and param is not None and param in self.__parameters_bounds:
-			q = self.__parameters_bounds[param].check(q)
+			if scaled:
+				if t in (float,complex,long,int,np.ndarray):
+					q = value
 			
-		if not scaled:
-			return q
+				# If tuple of (value,unit) is presented
+				elif t is tuple:
+					if len(value) != 2:
+						raise errors.QuantityCoercionError("Tuple specifications of quantities must be of form (<value>,<unit>). Was provided with %s ."%str(value))
+					else:
+						q = Quantity(*value,dispenser=self.__units)
+						q = q.value/self.__unit_scaling(q.units)
+			
+				elif isinstance(value, Quantity):
+					q = value.value/self.__unit_scaling(value.units)
+			
+			else:
+				if t in (float,complex,long,int,np.ndarray):
+					if unit is None and param is None:
+						unit = self.__get_unit('')
+					elif unit is not None:
+						unit = self.__get_unit(unit)
+					else:
+						unit = self.__get_unit(''  if self.__parameters_spec.get(param) is None else self.__parameters_spec.get(param) )
+					if isinstance(value,list):
+						value = np.array(value)
+					q = Quantity(value*self.__unit_scaling(unit), unit,dispenser=self.__units)
 		
-		return q.value/self.__unit_scaling(q.units)
-
+				# If tuple of (value,unit) is presented
+				elif t is tuple:
+					if len(value) != 2:
+						raise errors.QuantityCoercionError("Tuple specifications of quantities must be of form (<value>,<unit>). Was provided with %s ."%str(value))
+					else:
+						q = Quantity(*value,dispenser=self.__units)
+		
+				elif isinstance(value, Quantity):
+					q = value
+		
+		if q is None:
+			raise errors.QuantityValueError("Unknown value type '%s' with value: '%s'" % (t,value))
+		
+		if self.__parameters_bounds is not None and param is not None and param in self.__parameters_bounds:
+			q = self.__check_bounds(self.__parameters_bounds[param],q)
+			
+		return q
 	
 	def __eval(self,arg,**kwargs):
 		if isinstance(arg,types.FunctionType):
@@ -836,6 +853,41 @@ class Parameters(object):
 				self.__parameters_bounds = {}
 			self.__parameters_bounds[key] = Bounds(key,self.units(key),bounds_new,error=error,clip=clip,inclusive=inclusive)
 	
+	def __check_bounds(self,bounds,value):
+		if isinstance(value,Quantity):
+			scaled = False
+			value_comp = value
+		else:
+			scaled = True
+			value_comp = Quantity(value,self.__parameters_spec.get(bounds.param,None),dispenser=self.__units)
+		
+		if bounds.inclusive:
+			for bound in bounds.bounds:
+				if bound[0] <= value_comp and bound[1] >= value_comp:
+					return value
+		else:
+			for bound in bounds.bounds:
+				if bound[0] < value_comp and bound[1] > value_comp:
+					return value
+		
+		if bounds.clip:
+			if bounds.error:
+				warnings.warn( errors.ParameterOutsideBoundsWarning("Value %s for '%s' outside of bounds %s. Clipping to nearest allowable value." % (value, bounds.param, bounds.bounds)) )
+			blist = []
+			for bound in bounds.bounds:
+				blist.extend(bound)
+			dlist = map( lambda x: abs(x-value_comp) , blist)
+			v = np.array(blist)[np.where(dlist==np.min(dlist))]
+			if scaled:
+				return v
+			else:
+				return v.value/self.unit_scaling(v.unit)
+		elif bounds.error:
+			raise errors.ParameterOutsideBoundsError("Value %s for '%s' outside of bounds %s" % (value, bounds.param, bounds.bounds))
+	
+		warnings.warn( errors.ParameterOutsideBoundsWarning("Value %s for '%s' outside of bounds %s. Using value anyway." % (value, bounds.param, bounds.bounds)) )
+		return value
+	
 	def __getitem__(self,key):
 		try:
 			return self.__parameters_bounds[key].bounds
@@ -944,6 +996,12 @@ class Parameters(object):
 		if len(params) == 1:
 			return l[0]
 		return l
+	
+	def unit_scaling(self,*params):
+		l = list(self.__unit_scaling(param) for param in params)
+		if len(params) == 1:
+			return l[0]
+		return l
 
 	def convert(self, quantity, input=None, output=None, value=False):
 
@@ -1046,27 +1104,3 @@ class Bounds(object):
 		self.error = error
 		self.clip = clip
 		self.inclusive = inclusive
-	
-	def check(self,value):
-		if self.inclusive:
-			for bound in self.bounds:
-				if bound[0] <= value and bound[1] >= value:
-					return value
-		else:
-			for bound in self.bounds:
-				if bound[0] < value and bound[1] > value:
-					return value
-		
-		if self.clip:
-			if self.error:
-				warnings.warn( errors.ParameterOutsideBoundsWarning("Value %s for '%s' outside of bounds %s. Clipping to nearest allowable value." % (value, self.param, self.bounds)) )
-			blist = []
-			for bound in self.bounds:
-				blist.extend(bound)
-			dlist = map( lambda x: abs(x-value) , self.bounds)
-			return np.array(blist)[np.where(dlist==np.min(dlist))]
-		elif self.error:
-			raise errors.ParameterOutsideBoundsError("Value %s for '%s' outside of bounds %s" % (value, self.param, self.bounds))
-		
-		warnings.warn( errors.ParameterOutsideBoundsWarning("Value %s for '%s' outside of bounds %s. Using value anyway." % (value, self.param, self.bounds)) )
-		return value

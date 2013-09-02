@@ -125,6 +125,8 @@ class UnitsDispenser(object):
 		self._units = {}
 		self._prefixes = []
 		
+		self.__cache = {}
+		
 		self.init_prefixes()
 		self.init_units()
 	
@@ -209,8 +211,12 @@ class UnitsDispenser(object):
 	############# UNITS GENERATION #########################################
 	
 	def __call__(self,units):
+		if type(units) is str:
+			if units in self.__cache:
+				return self.__cache[units]
+			self.__cache[units] = Units(units,dispenser=self)
+			return self.__cache[units]
 		return Units(units,dispenser=self)
-	
 
 class Units(object):
 	'''
