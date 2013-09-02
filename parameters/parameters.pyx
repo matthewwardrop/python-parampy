@@ -456,10 +456,9 @@ class Parameters(object):
 		# first evaluate them.
 		for pam in restrict:
 			val = kwargs[pam]
-			t = type(val)
-			if t is str:
+			if type(val) is str:
 				val = self.__get_function(val)
-			if t is types.FunctionType:
+			if type(val) is types.FunctionType:
 				new = kwargs.copy()
 				del new[pam]
 				kwargs[pam] = self.__get_param(val,**new)
