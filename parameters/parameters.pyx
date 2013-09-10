@@ -1046,6 +1046,27 @@ class Parameters(object):
 			return self.__sympy_to_function(param)
 		
 		raise errors.ExpressionOptimisationError("No way to optimise parameter expression: %s ." % param)
+	
+	def is_constant(self,param,**params):
+		if self.__get_pam_name(param) in params and isinstance(self.__get_quantity(params[param]),Quantity):
+			return True
+		if self.__get_pam_name(param) in self.__parameters:
+			if not isinstance( self.__parameters[self.__get_pam_name(param)], types.FunctionType):
+				return True
+			return False
+		if isinstance(param,str):
+			try:
+				symbols = sympy.S(param).free_symbols
+				for symbol in symbols:
+					if symbol != param:
+						if not self.is_constant(str(symbol),**params):
+							return False
+					else:
+						raise errors.ParameterInvalidError("This parameters instance has no parameter named: '%s'" % param)
+				return True
+			except:
+				pass
+		raise errors.ParameterInvalidError("This parameters instance has no parameter named: '%s'" % param)
 
 	################## LOAD / SAVE PROFILES ################################
 	
