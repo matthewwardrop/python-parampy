@@ -315,10 +315,8 @@ class Parameters(object):
 		Retrieve the parameters specified in args, with temporary values overriding
 		defaults as in kwargs. Parameters are returned as Quantity's.
 		'''
-		
 		self.__process_override(kwargs)
-		
-		
+
 		if len(args) == 1:
 			result = self.__get_param(args[0],**kwargs)
 			if self.__parameters_bounds is not None:
@@ -326,10 +324,11 @@ class Parameters(object):
 				self.__forward_check_bounds(args,kwargs)
 			return result
 		
-		
 		results = self.__get_params(*args,**kwargs)
 		kwargs.update(results)
-		self.__forward_check_bounds(args,kwargs)
+		if self.__parameters_bounds is not None:
+			kwargs.update(results)
+			self.__forward_check_bounds(args,kwargs)
 		return results
 	
 	def __forward_check_bounds(self,args,kwargs):
@@ -367,7 +366,7 @@ class Parameters(object):
 		# If the parameter is actually a function
 		if not isinstance(arg,str) or (pam_name not in kwargs and pam_name not in self.__parameters):
 			return self.__eval(arg,**kwargs)
-			
+
 		else:
 			scaled = self.__default_scaled
 			if arg[:1] == "_": #.startswith("_"):
@@ -608,6 +607,10 @@ class Parameters(object):
 				raise e
 			except Exception as e:
 				raise errors.SymbolicEvaluationError("Error evaluating symbolic statement '%s'. The message from SymPy was: `%s`." % (arg,e))
+		elif isinstance(arg,(tuple,Quantity)):
+			return self.__get_quantity(arg,scaled=self.__default_scaled)
+		elif isinstance(arg,(complex,int,float,long)):
+			return arg
 		
 		raise errors.ParameterInvalidError("There is no parameter, and no interpretation, of '%s' which is recognised by Parameters." % arg)
 	
@@ -786,8 +789,7 @@ class Parameters(object):
 		
 		return '\n'.join(output)
 	
-	@property
-	def repr(self):
+	def show(self):
 		if len(self.__parameters) == 0:
 			return 'No parameters have been specified.'
 		

@@ -151,6 +151,8 @@ class TestParameters(unittest.TestCase):
 		
 		self.p << {'x':(2,'m'),'y':(2,'m'),'z':lambda x,y,z=None: x**2 + y**2 if z is None else (2,3)}
 		self.assertEqual( self.p('z',x=1,y=1) , SIQuantity( 2 ,'m^2'))
+
+		self.p('x','y','z')
 	
 	def test_scaled(self):
 		self.p & {'x':'nm'}
@@ -228,6 +230,11 @@ class TestParameters(unittest.TestCase):
 		self.p(x=1)
 		self.p << {'y':'_x^2'}
 		self.assertEqual( np.round(self.p.range('_y',x=[0.1,0.2,0.3]),4).tolist(), [0.01,0.04,0.09] )
+
+	def test_passthrough(self):
+		self.assertEqual( self.p(10.0), 10.0 )
+		self.assertEqual( self.p( (10,'m') ), SIQuantity(10.0,'m') )
+		self.assertEqual( self.p(SIQuantity(10.0,'m')), SIQuantity(10.0,'m') )
 
 if __name__ == '__main__':
 	unittest.main()
