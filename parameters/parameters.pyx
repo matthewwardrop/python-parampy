@@ -821,7 +821,7 @@ class Parameters(object):
 			if param not in self.__parameters:
 				parameters.append( [colour_text(param,'CYAN'), colour_text("- %s" % self.__parameters_spec[param],'CYAN'),colour_text("-",'CYAN')] )
 		
-		return self.__table(parameters)
+		print self.__table(parameters)
 	
 	def __repr__(self):
 		return "< Parameters with %d definitions >" % len(self.__parameters)
