@@ -15,7 +15,8 @@ class Parameters(object):
 	Parameters(dispenser=None,default_scaled=True,constants=False)
 	
 	An object to manage the generation of scaled parameters; as well as 
-	handle the dependence of parameters upon one another.
+	handle the dependence of parameters upon one another. Parameters also
+	supports adding bounds to parameters.
 	
 	Parameters
 	----------
@@ -64,6 +65,10 @@ class Parameters(object):
 		scaled version of the parameter. If the unit has never been set, 
 		then a 'constant' unit is assumed; otherwise the older unit is used.
 		>>> p(x=1)
+
+		If the parameter name does not clash with a method of parameters, 
+		you can use the shorthand:
+		>>> p.x = (1,'ms')
 		
 		You can specify the units of a parameter, without specifying its
 		value:
@@ -99,6 +104,10 @@ class Parameters(object):
 		function is inverted, it should return a tuple of variables in the
 		same order as the function declaration.
 		>>> p << { 'z': lambda x,y,z=None: x**2+y if z is None else (1,2) }
+
+		You can also use the shorthand:
+		>>> p.z = lambda x,y,z=None: x**2+y if z is None else (1,2)
+		Note that setting attributes in this way keeps the functional dependence.
 		
 		We can then update z in the normal way:
 		>>> p(z=1)
@@ -117,15 +126,15 @@ class Parameters(object):
 	
 	## Removing Parameters
 		
-		To remove a parameter, simply use the subtraction operator:
-		>>> p - 'x'
+		To remove a parameter, simply use the forget method:
+		>>> p.forget('x','y',...)
 	
 	## Parameter Units and Scaling
 		
 		You can add your own custom units by adding them directly to the
 		unit dispenser used to set up the Parameters instance; or by 
 		adding them to the parameters object like:
-		>>> p + {'names':'testunit','abbr':'TU','rel':1e7,'length':1,'mass':1,'prefixable':False}
+		>>> p.unit_add(names='testunit',abbr='TU',rel=1e7,prefixable=False,dimensions={'mass':1,'length':1})
 		For a description of what the various keys mean, see the documentation
 		for Unit.
 		
@@ -133,12 +142,13 @@ class Parameters(object):
 		parameters that is different from the standard SI values. You can set
 		a new basis unit for any dimension: i.e.  For the below, all scaled 'length'
 		parameters will be scaled by 0.5 compared to the former basis of (1,'m').
-		>>> p * {'length':(2,'m')}
+		>>> p.scaling(length=(2,'m'),...)
+
+		You can retrieve the current scaling for any dimension using:
+		>>> p.scaling('length','time',...)
 		
-		You can also change the scaling for particular combinations of dimensions
-		on top of the basis scalings. The below will cause all "acceleration" 
-		parameters to be multiplied by 2.5 in their scaled forms.
-		>>> p * ({'length':1,'time':-2},2.5)
+		To view the cumulative scaling for any unit, you can use:
+		>>> p.unit_scaling('J','kg',...)
 	
 	## Unit Conversion
 		
@@ -154,6 +164,9 @@ class Parameters(object):
 		>>> p.convert( 1.0 , output='ms')
 		converts a scaled parameter with dimension of 'time' to a Quantity
 		with units of 'ms'.
+		>>> p.convert( 1.0 , output='ms', value=True)
+		converts a scaled parameter with dimension of time to number corresponding
+		to the value of Quantity with units of 'ms'.
 	
 	## Parameter Bounding
 		
@@ -243,7 +256,6 @@ class Parameters(object):
 		self.__parameters = {}
 		self.__parameters_bounds = None
 		self.__scalings = {}
-		self.__unit_scalings = []
 		self.__units = dispenser if dispenser is not None else SIDispenser()
 		self.__units_custom = []
 		self.__default_scaled = default_scaled
@@ -261,43 +273,43 @@ class Parameters(object):
 	def __add__(self,other):
 		self.__unit_add(other)
 		return self
-		
-	def __unit_add(self,other):
+	
+	def unit_add(self,*args,**kwargs):
 		'''
 		This adds a unit to a custom UnitDispenser. See UnitDispenser.add for more info.
 		'''
-		if isinstance(other,dict):
-			other = Unit(**other)
-		if isinstance(other, Unit):
-			self.__units.add(other)
-			self.__units_custom.append(other)
-	
-	def __mul__(self,other):
-		self.__scaling_set(other)
-		return self
-		
-	def __scaling_set(self,kwargs):
-		self.__scaling_cache = {}
-		
-		# If kwargs is dict, then add a new dimension scaling
-		if isinstance(kwargs,dict):
-			for arg in kwargs:
-				if arg in self.__units.dimensions:
-					scale = self.__get_quantity(kwargs[arg],param=arg)
-					if scale.units.dimensions == {arg:1}:
-						self.__scalings[arg] = scale
-					else:
-						raise errors.ScalingUnitInvalidError( "Dimension of scaling (%s) is wrong for %s." % (scale.units,arg) )
-				else:
-					raise errors.ScalingDimensionInvalidError("Invalid scaling dimension %s." % arg)
-		
-		# Otherwise, add a new unit scaling
-		elif isinstance(kwargs,(list,tuple)) and len(kwargs)==2:
-			self.__unit_scalings.append(kwargs)
-		
+		if len(args) == 1 and isinstance(args[0],Unit):
+			unit = args[0]
 		else:
-			raise errors.ScalingValueError( "Cannot set scaling with %s." % kwargs )
-	
+			unit = Unit(*args,**kwargs)
+		self.__units.add(unit)
+		self.__units_custom.append(unit)
+
+	def scaling(self,*args,**kwargs):
+		self.__scaling_cache = {}
+
+		for arg in kwargs:
+			if arg in self.__units.dimensions:
+				scale = self.__get_quantity(kwargs[arg],param=arg)
+				if scale.units.dimensions == {arg:1}:
+					self.__scalings[arg] = scale
+				else:
+					raise errors.ScalingUnitInvalidError( "Dimension of scaling (%s) is wrong for %s." % (scale.units,arg) )
+			else:
+				raise errors.ScalingDimensionInvalidError("Invalid scaling dimension %s." % arg)
+
+		if len(args) > 0:
+			output = {}
+			for arg in args:
+				output[arg] = self.__scalings[arg]
+			return output
+
+	def unit_scaling(self,*params):
+		l = list(self.__unit_scaling(param) for param in params)
+		if len(params) == 1:
+			return l[0]
+		return l
+
 	def __get_unit(self,unit):
 		
 		if isinstance(unit,str):
@@ -616,23 +628,23 @@ class Parameters(object):
 	
 	################ SET PARAMETERS ############################################
 	
-	def __is_valid_param(self,param):
-		return re.match("^[_A-Za-z][_a-zA-Z0-9]*$",param)
+	def __is_valid_param(self,param,allow_leading_underscore=True):
+		return re.match("^[%sA-Za-z][_a-zA-Z0-9]*$"%('_' if allow_leading_underscore else ''),param)
 	
-	def __check_valid_params(self,params):
+	def __check_valid_params(self,params,allow_leading_underscore=True):
 		bad = []
 		for param in params:
-			if not self.__is_valid_param(param):
+			if not self.__is_valid_param(param,allow_leading_underscore=allow_leading_underscore):
 				bad.append(param)
 		if len(bad) > 0:
-			raise errors.ParameterInvalidError("Attempt to set invalid parameters: %s . Parameters must be valid python identifiers matching ^[_A-Za-z][_a-zA-Z0-9]*$." % ','.join(bad) )
+			raise errors.ParameterInvalidError("Attempt to set invalid parameters: %s . Parameters must be valid python identifiers matching ^[%sA-Za-z][_a-zA-Z0-9]*$." % (','.join(bad),'_' if allow_leading_underscore else '') )
 	
 	def __set(self,**kwargs):
 		
 		self.__cache_deps = {}
 		self.__cache_sups = {}
 		
-		self.__check_valid_params(kwargs)
+		self.__check_valid_params(kwargs,allow_leading_underscore=False)
 		
 		for param,val in kwargs.items():
 			if isinstance(val,(types.FunctionType,str)):
@@ -676,11 +688,9 @@ class Parameters(object):
 		if param in self.__parameters_spec:
 			del self.__parameters_spec[param]
 	
-	def __sub__(self,other):
-		if not isinstance(other,str):
-			raise errors.ParameterInvalidError("The subtraction operator is used to remove parameters; and a parameter name string must be provided.")
-		
-		self.__remove(other)
+	def forget(self,*params):
+		for param in params:
+			self.__remove(param)
 		return self
 	
 	def __lshift__(self,other):
@@ -729,12 +739,6 @@ class Parameters(object):
 		
 		return f
 	
-	def __unit_scale(self,unit):
-		for scale in self.__unit_scalings:
-			if scale[0] == unit.dimensions:
-				return scale[1]
-		return 1.0
-	
 	def __basis_scale(self,unit):
 		unit = self.__get_unit(unit)
 		scaling = Quantity(1,None,dispenser=self.__units)
@@ -756,7 +760,7 @@ class Parameters(object):
 			return self.__scaling_cache[unit]
 		
 		scale = self.__basis_scale(unit)
-		scaling = scale.value*scale.units.scale(unit)/self.__unit_scale(unit)
+		scaling = scale.value*scale.units.scale(unit)
 		
 		self.__scaling_cache[unit] = scaling
 		return scaling
@@ -769,6 +773,11 @@ class Parameters(object):
 		
 		self.__update(**kwargs)
 		return self
+
+	def __setattr__(self,attr,value):
+		if attr.startswith('__') or attr.startswith('_Parameters'):
+			return super(Parameters,self).__setattr__(attr,value)
+		return self.__set(**{attr:value})
 	
 	def __table(self,table):
 		
@@ -832,7 +841,7 @@ class Parameters(object):
 		return res
 	
 	def __getattr__(self,name):
-		if name[:2] == "__":
+		if name[:2] == "__" or name[:11] == "_Parameters":
 			raise AttributeError
 		return self.__get(name)
 	
@@ -892,7 +901,7 @@ class Parameters(object):
 			if scaled:
 				return v
 			else:
-				return v.value/self.unit_scaling(v.unit)
+				return v.value/self.__unit_scaling(v.unit)
 		elif bounds.error:
 			raise errors.ParameterOutsideBoundsError("Value %s for '%s' outside of bounds %s" % (value, bounds.param, bounds.bounds))
 	
@@ -1007,12 +1016,6 @@ class Parameters(object):
 		if len(params) == 1:
 			return l[0]
 		return l
-	
-	def unit_scaling(self,*params):
-		l = list(self.__unit_scaling(param) for param in params)
-		if len(params) == 1:
-			return l[0]
-		return l
 
 	def convert(self, quantity, input=None, output=None, value=False):
 
@@ -1078,10 +1081,7 @@ class Parameters(object):
 		
 		p = cls(**kwargs)
 		
-		p*getattr(profile,"dimension_scalings",{})
-		
-		for unit_scaling in getattr(profile,"unit_scalings",[]):
-			p*unit_scaling
+		p.scaling(**getattr(profile,"dimension_scalings",{}))
 		
 		for unit in getattr(profile,"units_custom",[]):
 			p+unit
@@ -1105,12 +1105,6 @@ class Parameters(object):
 		f.write( "dimension_scalings = {\n" )
 		for dimension,scaling in self.__scalings.items():
 			f.write("\t\"%s\": (%s,\"%s\"),\n"%(dimension,scaling.value,scaling.units))
-		f.write( "}\n\n" )
-		
-		# Export unit scalings
-		f.write( "unit_scalings = {\n" )
-		for scaling in self.__unit_scalings:
-			f.write("%s,\n"%scaling)
 		f.write( "}\n\n" )
 		
 		# Export custom units

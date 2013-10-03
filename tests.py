@@ -138,7 +138,7 @@ class TestParameters(unittest.TestCase):
 		self.assertEqual( self.p.z, SIQuantity(5.) ) 
 	
 	def test_scaling(self):
-		self.p*{'length':(1,'nm'), 'time':(2,'s')}
+		self.p.scaling(length=(1,'nm'), time=(2,'s'))
 		self.p(x=(1,"nm"))
 		self.assertEqual( self.p._x , 1.0 )
 		
@@ -156,14 +156,14 @@ class TestParameters(unittest.TestCase):
 	
 	def test_scaled(self):
 		self.p & {'x':'nm'}
-		self.p*{'length':(1,'nm')}
+		self.p.scaling(length=(1,'nm'))
 		self.p(x=1)
 		self.assertEqual( self.p._x , 1.0 )
 		self.assertEqual( self.p.x, SIQuantity (1,'nm') )
 	
 	def test_scaled_inverse(self):
 		self.p & {'x':'nm','y':'nm'}
-		self.p*{'length':(1,'nm')}
+		self.p.scaling(length=(1,'nm'))
 		self.p(x=2,y=2,z=lambda x,y: x**2 + y**2)
 		self.p(z=2)
 		self.assertEqual( self.p._x , 2)
@@ -176,24 +176,24 @@ class TestParameters(unittest.TestCase):
 		self.assertEqual( self.p(lambda _x,_y : _x**2 + _y**2), 5 )
 	
 	def test_units(self):
-		self.p + {'names':'testunit','abbr':'TU','rel':1e7,'dimensions':{'length':1,'mass':1},'prefixable':False}
+		self.p.unit_add(names='testunit',abbr='TU',rel=1e7,dimensions={'length':1,'mass':1},prefixable=False)
 		self.assertEqual( self.p('x',x=(1,'TU'))('kg*m') , SIQuantity(1e7,'kg*m') )
 	
+	def test_reserved(self):
+		self.p.unit_add = (1,'ms')
+		self.assertEqual( self.p('_unit_add'), 1e-3 )
+
 	def test_conversion(self):
 		self.assertEqual(SIQuantity(1.,'mT'), self.p.convert(1.0,'mT','mT'))
 		self.assertEqual(SIQuantity(1e-3,'T'), self.p.convert(1.0,'mT','T'))
 		self.assertRaises(errors.UnitConversionError, self.p.convert, 1.0, 'kg', 's')
 		self.assertEqual(1e-3, self.p.convert(1.0,'mT'))
 		self.assertEqual(SIQuantity(1e3,'mT'), self.p.convert(1.0,output='mT'))
-		self.p*{'mass':(1,'g')}
+		self.p.scaling(mass=(1,'g'))
 		self.assertEqual(1.0, self.p.convert(1.0,'mT'))
 	
 	def test_symbolic(self):
 		self.assertEqual(self.p('_x^2 + _y^2', x=1, y=2),5.0)
-	
-	def test_unit_scaling(self):
-		self.p * ({"mass":1,"length":2,"time":-2}, 2.0)
-		self.assertEqual( self.p('_x',x=(1,'J')), 2.0 )
 	
 	def test_constants(self):
 		self.assertEqual(self.p._c_h,6.62606957e-34)
@@ -211,7 +211,7 @@ class TestParameters(unittest.TestCase):
 
 	def test_asvalue(self):
 		self.p(x=(1,'J'))
-		self.p * {'mass':(-1000,'kg')}
+		self.p.scaling(mass=(-1000,'kg'))
 		self.assertEquals( self.p.asvalue(x=np.array([1,2,3])).tolist(),[-1000,-2000,-3000] )
 		self.assertEquals( self.p.asvalue(x=np.array([1,2,3]),y=np.array([1,2,3]))['y'].tolist(),[1,2,3] )
 	
@@ -235,6 +235,10 @@ class TestParameters(unittest.TestCase):
 		self.assertEqual( self.p(10.0), 10.0 )
 		self.assertEqual( self.p( (10,'m') ), SIQuantity(10.0,'m') )
 		self.assertEqual( self.p(SIQuantity(10.0,'m')), SIQuantity(10.0,'m') )
+	
+	def test_setattr(self):
+		self.p.x = (1,'ms')
+		self.assertEqual( self.p.x, SIQuantity(1,'ms') )
 
 if __name__ == '__main__':
 	unittest.main()
