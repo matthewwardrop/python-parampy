@@ -34,6 +34,10 @@ class Parameters(object):
 	Initialising a parameters object with the default settings
 	>>> p = Parameters()
 	
+	## Parameters structure
+		To see an overview of the parameter object; simply use:
+		>>> p.show()
+
 	## Parameter Extraction
 		
 		To retrieve a parameter 'x' from a Parameters instance, you use:
@@ -245,9 +249,13 @@ class Parameters(object):
 		
 		To load a parameter set into a Parameters instance, use the classmethod:
 		>>> p = Parameters.load( "filename.py" )
+		Note that parameters defined as functions will be imported as functions.
+
 		To see the format of a parameters instance, or to save your existing parameters,
 		use:
 		>>> p >> "filename.py"
+		Note that functional parameters will only be saved as static values.
+
 	
 	"""
 	
@@ -271,15 +279,20 @@ class Parameters(object):
 	
 	############## PARAMETER OBJECT CONFIGURATION ##############################
 	def __add__(self,other):
-		self.__unit_add(other)
+		self.unit_add(other)
 		return self
 	
 	def unit_add(self,*args,**kwargs):
 		'''
 		This adds a unit to a custom UnitDispenser. See UnitDispenser.add for more info.
 		'''
-		if len(args) == 1 and isinstance(args[0],Unit):
-			unit = args[0]
+		if len(args) == 1:
+			if isinstance(args[0],Unit):
+				unit = args[0]
+			elif isinstance(args[0],dict):
+				unit = Unit(**args[0])
+			else:
+				raise ValueError("Invalid unit type to add: %s"%args[0])
 		else:
 			unit = Unit(*args,**kwargs)
 		self.__units.add(unit)
@@ -372,7 +385,6 @@ class Parameters(object):
 		Returns the value of a param `arg` with its dependent variables overriden
 		as in `kwargs`.
 		'''
-		
 		pam_name = self.__get_pam_name(arg)
 		
 		# If the parameter is actually a function
@@ -647,6 +659,8 @@ class Parameters(object):
 		self.__check_valid_params(kwargs,allow_leading_underscore=False)
 		
 		for param,val in kwargs.items():
+			if param in self.__cache_scaled: # Clear cache if present.
+				del self.__cache_scaled[param]
 			if isinstance(val,(types.FunctionType,str)):
 				self.__parameters[param] = self.__check_function(param,self.__get_function(val))
 				self.__spec(**{param:self.__get_unit('')})
@@ -1086,7 +1100,7 @@ class Parameters(object):
 		for unit in getattr(profile,"units_custom",[]):
 			p+unit
 		
-		p(**getattr(profile,"parameters",{}))
+		p << getattr(profile,"parameters",{})
 		
 		return p
 	

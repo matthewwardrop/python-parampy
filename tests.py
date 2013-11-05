@@ -240,5 +240,12 @@ class TestParameters(unittest.TestCase):
 		self.p.x = (1,'ms')
 		self.assertEqual( self.p.x, SIQuantity(1,'ms') )
 
+	def test_reset(self):
+		self.p.y = 1
+		self.p._y
+		self.p.y = 2
+		self.assertEqual( self.p('_y'), 2 )
+		self.assertEqual( self.p._y, 2 )
+
 if __name__ == '__main__':
 	unittest.main()
