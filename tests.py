@@ -246,6 +246,13 @@ class TestParameters(unittest.TestCase):
 		self.p.y = 2
 		self.assertEqual( self.p('_y'), 2 )
 		self.assertEqual( self.p._y, 2 )
+	
+	def test_recursion(self):
+		
+		def recurse():
+			self.p << {'y': lambda z: z, 'z': lambda y: y} # mixed recursion
+		
+		self.assertRaises(errors.ParameterRecursionError,recurse)
 
 if __name__ == '__main__':
 	unittest.main()
