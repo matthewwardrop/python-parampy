@@ -740,7 +740,7 @@ class Parameters(object):
 			args.remove(param)
 		
 		if forbidden is None:
-			forbidden = []
+			forbidden = [param]
 		else:
 			for arg in forbidden:
 				if arg in args:
