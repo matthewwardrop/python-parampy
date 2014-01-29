@@ -254,5 +254,12 @@ class TestParameters(unittest.TestCase):
 		
 		self.assertRaises(errors.ParameterRecursionError,recurse)
 
+	def test_context(self):
+		self.p.x = 1
+		with self.p:
+			self.p.x = 2
+			self.assertEqual(self.p._x,2)
+		self.assertEqual(self.p._x,1)
+
 if __name__ == '__main__':
 	unittest.main()

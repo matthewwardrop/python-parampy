@@ -23,7 +23,8 @@ The following is the documentation included within the Parameters object:
 	Parameters(dispenser=None,default_scaled=True,constants=False)
 	
 	An object to manage the generation of scaled parameters; as well as 
-	handle the dependence of parameters upon one another.
+	handle the dependence of parameters upon one another. Parameters also
+	supports adding bounds to parameters.
 	
 	Parameters
 	----------
@@ -41,6 +42,10 @@ The following is the documentation included within the Parameters object:
 	Initialising a parameters object with the default settings
 	>>> p = Parameters()
 	
+	## Parameters structure
+		To see an overview of the parameter object; simply use:
+		>>> p.show()
+
 	## Parameter Extraction
 		
 		To retrieve a parameter 'x' from a Parameters instance, you use:
@@ -72,6 +77,10 @@ The following is the documentation included within the Parameters object:
 		scaled version of the parameter. If the unit has never been set, 
 		then a 'constant' unit is assumed; otherwise the older unit is used.
 		>>> p(x=1)
+
+		If the parameter name does not clash with a method of parameters, 
+		you can use the shorthand:
+		>>> p.x = (1,'ms')
 		
 		You can specify the units of a parameter, without specifying its
 		value:
@@ -107,6 +116,10 @@ The following is the documentation included within the Parameters object:
 		function is inverted, it should return a tuple of variables in the
 		same order as the function declaration.
 		>>> p << { 'z': lambda x,y,z=None: x**2+y if z is None else (1,2) }
+
+		You can also use the shorthand:
+		>>> p.z = lambda x,y,z=None: x**2+y if z is None else (1,2)
+		Note that setting attributes in this way keeps the functional dependence.
 		
 		We can then update z in the normal way:
 		>>> p(z=1)
@@ -114,21 +127,26 @@ The following is the documentation included within the Parameters object:
 		x=1. This will return a ValueError with a description of the problem.
 		However, this allows one to have an intricate variable structure.
 		
+		If a parameter has a functional dependence, but is not invertible, 
+		and it is updated as above, an error will be raised. However, if 
+		the is being specified only as an override, it is maintained, but
+		may result in the parameters being inconsistent.
+		
 		To force parameters to be overridden, whether or not the parameter is
 		a function, use the left shift operator:
 		>>> p << {'z': (1,'ms')}
 	
 	## Removing Parameters
 		
-		To remove a parameter, simply use the subtraction operator:
-		>>> p - 'x'
+		To remove a parameter, simply use the forget method:
+		>>> p.forget('x','y',...)
 	
 	## Parameter Units and Scaling
 		
 		You can add your own custom units by adding them directly to the
 		unit dispenser used to set up the Parameters instance; or by 
 		adding them to the parameters object like:
-		>>> p + {'names':'testunit','abbr':'TU','rel':1e7,'length':1,'mass':1,'prefixable':False}
+		>>> p.unit_add(names='testunit',abbr='TU',rel=1e7,prefixable=False,dimensions={'mass':1,'length':1})
 		For a description of what the various keys mean, see the documentation
 		for Unit.
 		
@@ -136,12 +154,13 @@ The following is the documentation included within the Parameters object:
 		parameters that is different from the standard SI values. You can set
 		a new basis unit for any dimension: i.e.  For the below, all scaled 'length'
 		parameters will be scaled by 0.5 compared to the former basis of (1,'m').
-		>>> p * {'length':(2,'m')}
+		>>> p.scaling(length=(2,'m'),...)
+
+		You can retrieve the current scaling for any dimension using:
+		>>> p.scaling('length','time',...)
 		
-		You can also change the scaling for particular combinations of dimensions
-		on top of the basis scalings. The below will cause all "acceleration" 
-		parameters to be multiplied by 2.5 in their scaled forms.
-		>>> p * ({'length':1,'time':-2},2.5)
+		To view the cumulative scaling for any unit, you can use:
+		>>> p.unit_scaling('J','kg',...)
 	
 	## Unit Conversion
 		
@@ -157,6 +176,74 @@ The following is the documentation included within the Parameters object:
 		>>> p.convert( 1.0 , output='ms')
 		converts a scaled parameter with dimension of 'time' to a Quantity
 		with units of 'ms'.
+		>>> p.convert( 1.0 , output='ms', value=True)
+		converts a scaled parameter with dimension of time to number corresponding
+		to the value of Quantity with units of 'ms'.
+	
+	## Parameter Bounding
+		
+		Sometimes it is necessary to be sure that a parameter is within 
+		certain bounds. Parameter objects can ensure this for you, with
+		minimal overhead in performance. To set a bound you can use:
+		>>> p['x'] = (0,100)
+		If one of the extremum values is None, it is set to -infinity or 
+		+infinity, depending upon whether it is the upper or lower bound.
+		If a disjointed bound is necessary, you can use:
+		>>> p['x'] = [ (None,10), (15,None) ]
+		
+		If you need more power over the bounds, you can use the 
+		set_bounds method. In addition to the bounds described above, it
+		accepts three keyword arguments: error, clip and inclusive.
+			error (True) : This keyword determines whether a parameter
+				found to be outside this bound should trigger an error;
+				or if clip is True, whether a warning should be generated.
+			clip (False) : If true, the parameter will be clipped to 
+				the nearest bound edge (assumes inclusive is True).
+				If error is true, a warning will be generated.
+			inclusive (True) : Whether the upper and lower bounds are 
+				to be included in the range.
+		>>> p.set_bounds( {'x':(0,100)}, error=True, clip=True, inclusive=True )
+	
+	## Parameter Ranges
+		
+		It is often the case that one would like to iterate over various 
+		parameter ranges, or to investigate how one parameter changes
+		relative to another. The Parameters object makes this easy with
+		the 'range' method. The range method has similar syntax to the
+		parameter extraction method; but is kept separate for clarity and
+		efficiency.
+		
+		>>> p << {'y':lamdba x:x**2}
+		>>> p.range( 'y', x = [0,1,2,3] )
+		This will return: [0,1.,4.,9.].
+		
+		Arrays may be input as lists or numpy ndarrays; and returned arrays
+		are typically numpy arrays.
+		
+		The values for parameter overrides can also be provided in a more
+		abstract notation; such that the range will be generated when the 
+		function is called. Parameters accepts ranges in the following forms:
+		 - (<start>,<stop>,<count>) ; which will generate a linear array
+		   from <start> to <stop> with <count> values.
+		 - (<start>,<stop>,<count>,<sampler>) ; which is as above, but where
+		   the <sampler> is expected to generate the array. <sampler> can
+		   be a string (either 'linear','log','invlog' for linear, logarithmic,
+		   or inverse logarithmic distributions respectively); or a function
+		   which takes arguments <start>,<stop>,<count> .
+		
+		>>> p.range( 'y', x = (0,10,2) )
+		returns: [0.,100.]
+		
+		It is also possible to determine multiple parameters at once.
+		>>> p.range( 'x', 'y', x=(0,10,2) )
+		returns: {'x':[0.,10.], 'y':[0.,100.]}
+		
+		If multiple overrides are provided, they must either be constant 
+		or have the same length.
+		>>> p.range( 'x', x=(0,10,2), z=1 )
+		is OKAY
+		>>> p.range( 'x', x=(0,10,2), z=[1,2,3] )
+		is NOT okay.
 	
 	## Physical Constants
 		
@@ -164,12 +251,24 @@ The following is the documentation included within the Parameters object:
 		constants defined in "physical_constants.py" when using an SIDispenser
 		if constants is set to 'True'. These constants function just as 
 		any other parameter, and can be overriden. For example:
-		>>> p.hbar
+		>>> p.c_hbar
 	
 	## Loading and Saving
 		
 		To load a parameter set into a Parameters instance, use the classmethod:
 		>>> p = Parameters.load( "filename.py" )
+		Note that parameters defined as functions will be imported as functions.
+
 		To see the format of a parameters instance, or to save your existing parameters,
 		use:
 		>>> p >> "filename.py"
+		Note that functional parameters will only be saved as static values.
+
+	## Temporary changes
+
+		Parameters objects support Python's "with" syntax. Upon exiting a "with"
+		environment, any changes made will be reset to before entering the environment.
+
+		>>> with p:
+		>>> 	p(x=1)
+		>>> p('x') # Returns value of x before entering the with environment.

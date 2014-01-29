@@ -1,4 +1,4 @@
-import types,inspect,warnings,imp,re
+import types,inspect,warnings,imp,re,copy
 
 import numpy as np
 import sympy
@@ -256,7 +256,14 @@ class Parameters(object):
 		>>> p >> "filename.py"
 		Note that functional parameters will only be saved as static values.
 
-	
+	## Temporary changes
+
+		Parameters objects support Python's "with" syntax. Upon exiting a "with"
+		environment, any changes made will be reset to before entering the environment.
+
+		>>> with p:
+		>>> 	p(x=1)
+		>>> p('x') # Returns value of x before entering the with environment.
 	"""
 	
 	def __init__(self,dispenser=None,default_scaled=True,constants=False):
@@ -332,6 +339,38 @@ class Parameters(object):
 			return unit
 		
 		raise errors.UnitInvalidError( "No coercion for %s to Units." % unit )
+
+	def __enter__(self):
+		self.__context_save = {
+			'parameters_spec': copy.deepcopy(self.__parameters_spec),
+			'parameters': copy.deepcopy(self.__parameters),
+			'parameters_bounds': copy.deepcopy(self.__parameters_bounds),
+			'scalings': copy.deepcopy(self.__scalings),
+			'units': copy.deepcopy(self.__units),
+			'units_custom': copy.deepcopy(self.__units_custom),
+			'default_scaled': copy.deepcopy(self.__default_scaled),
+		}
+
+	def __exit__(self, type, value, traceback):
+
+		# Restore context
+		self.__parameters_spec = self.__context_save['parameters_spec']
+		self.__parameters = self.__context_save['parameters']
+		self.__parameters_bounds = self.__context_save['parameters_bounds']
+		self.__scalings = self.__context_save['scalings']
+		self.__units = self.__context_save['units']
+		self.__units_custom = self.__context_save['units_custom']
+		self.__default_scaled = self.__context_save['default_scaled']
+
+		# Remove context
+		del self.__context_save
+		
+		# Clear cache
+		self.__cache_deps = {}
+		self.__cache_sups = {}
+		self.__cache_scaled = {}
+		
+		self.__scaling_cache = {}
 			
 	############# PARAMETER RETRIEVAL ##########################################
 	

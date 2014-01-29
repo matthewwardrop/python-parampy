@@ -36,7 +36,7 @@ else:
     ]
 
 setup(name='python-parameters',
-      version='1.0.0',
+      version='1.1.0',
       description='A parameter manager that keeps track of physical (or numerical) quantities, and the relationships between them.',
       author='Matthew Wardrop',
       author_email='mister.wardrop@gmail.com',
