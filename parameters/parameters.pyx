@@ -655,7 +655,7 @@ class Parameters(object):
 		elif isinstance(arg,str) or arg.__class__.__module__.startswith('sympy'):
 			try:
 				if isinstance(arg,str):
-					arg = sympy.S(arg)
+					arg = sympy.S(arg,sympy.abc._clash)
 					fs = list(arg.free_symbols)
 					if len(fs) == 1 and str(arg)==str(fs[0]):
 						raise errors.ParameterInvalidError("There is no parameter, and no interpretation, of '%s' which is recognised by Parameters." % arg)
@@ -756,7 +756,7 @@ class Parameters(object):
 	
 	def __sympy_to_function(self,expr):
 		try:
-			expr = sympy.S(expr)
+			expr = sympy.S(expr,sympy.abc._clash)
 			syms = list(expr.free_symbols)
 			f = sympy.utilities.lambdify(syms,expr)
 
@@ -1114,7 +1114,7 @@ class Parameters(object):
 			return False
 		if isinstance(param,str):
 			try:
-				symbols = sympy.S(param).free_symbols
+				symbols = sympy.S(param,sympy.abc._clash).free_symbols
 				for symbol in symbols:
 					if symbol != param:
 						if not self.is_constant(str(symbol),**params):
