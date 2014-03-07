@@ -261,5 +261,11 @@ class TestParameters(unittest.TestCase):
 			self.assertEqual(self.p._x,2)
 		self.assertEqual(self.p._x,1)
 
+	def test_complex(self):
+		self.p.x = 1 + 2j
+		
+		self.assertEqual(self.p._x,1+2j)
+		self.assertEqual(self.p('_x^2'),-3+4j)
+
 if __name__ == '__main__':
 	unittest.main()
