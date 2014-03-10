@@ -1023,7 +1023,7 @@ class Parameters(object):
 				start,end,count = pam_range
 			else:
 				raise ValueError ("Unknown range specification format: %s." % pam_range)
-			
+
 			if isinstance(sampler,str):
 				if sampler == 'linear':
 					sampler = np.linspace
@@ -1039,10 +1039,10 @@ class Parameters(object):
 					sampler = logspace
 				else:
 					raise ValueError( "Unknown sampler: %s" % sampler )
-			
+
 			return sampler(
-					self.__get_quantity(start,param=param,scaled=True),
-					self.__get_quantity(end,param=param,scaled=True),
+					self.__get(self.__get_pam_scaled_name(param),**{param: start}),
+					self.__get(self.__get_pam_scaled_name(param),**{param: end}),
 					count
 					)
 		return pam_range
