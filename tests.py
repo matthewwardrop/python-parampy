@@ -267,5 +267,12 @@ class TestParameters(unittest.TestCase):
 		self.assertEqual(self.p._x,1+2j)
 		self.assertEqual(self.p('_x^2'),-3+4j)
 
+	def test_range_advanced(self):
+		self.p.k = 2
+
+		self.assertEqual(self.p.range('_x',x=('-_k','_k',3)),[-2,0,2])
+		self.assertEqual(self.p.range('_x',x=['_k','2*_k','_k/2'],k=[1,3,5]),[1,6,2.5])
+		self.assertEqual(self.p.range('_x',x=['_k','2*_k','_k/2'],k=(1,3,3)),[1,4,1.5])
+
 if __name__ == '__main__':
 	unittest.main()

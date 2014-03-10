@@ -980,16 +980,22 @@ class Parameters(object):
 		static = {}
 		lists = {}
 		
+		# Separate out static coefficients
+		for param,pam_range in ranges.items():
+			if not isinstance(pam_range,(list,np.ndarray,tuple)): # Using negated check to maximise allowed input types.
+				static[param] = pam_range
+
+		# Generate sequences in the context of static coefficients
+		# Note: It is not necessary to worry about clashes at this 
+		#       stage. They will be detected in the self.__get() method.
 		count = None
 		for param,pam_range in ranges.items():
-			pam_range = self.__range_interpret(param,pam_range)
+			pam_range = self.__range_interpret(param,pam_range,params=static)
 			if isinstance(pam_range,(list,np.ndarray)):
 				lists[param] = pam_range
 				count = len(pam_range) if count is None else count
 				if count != len(pam_range):
 					raise ValueError("Not all parameters have the same range")
-			else:
-				static[param] = range
 		
 		if count is None:
 			return self.__get(*args,**ranges)
@@ -1016,7 +1022,7 @@ class Parameters(object):
 		
 		return values
 	
-	def __range_interpret(self,param,pam_range):
+	def __range_interpret(self,param,pam_range,params=None):
 		if isinstance(pam_range,tuple) and len(pam_range) in [3,4]:
 			start,end,count,sampler = 0,1,1,np.linspace
 			
@@ -1043,9 +1049,16 @@ class Parameters(object):
 				else:
 					raise ValueError( "Unknown sampler: %s" % sampler )
 
+			start_params = {param:start}
+			end_params = {param:end}
+			if type(params) is dict:
+				start_params.update(params)
+				end_params.update(params)
+
+			# Note: param keyword cannot appear in params without keyword repetition in self.range.
 			return sampler(
-					self.__get(self.__get_pam_scaled_name(param),**{param: start}),
-					self.__get(self.__get_pam_scaled_name(param),**{param: end}),
+					self.__get(self.__get_pam_scaled_name(param),**start_params),
+					self.__get(self.__get_pam_scaled_name(param),**end_params),
 					count
 					)
 		return pam_range
