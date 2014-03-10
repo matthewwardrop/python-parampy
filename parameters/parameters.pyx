@@ -1,7 +1,7 @@
 import types,inspect,warnings,imp,re,copy
 
 import numpy as np
-import sympy
+import sympy, sympy.abc
 
 from .definitions import SIDispenser
 from .quantities import Quantity,SIQuantity
@@ -655,7 +655,7 @@ class Parameters(object):
 		elif isinstance(arg,str) or arg.__class__.__module__.startswith('sympy'):
 			try:
 				if isinstance(arg,str):
-					arg = sympy.S(arg)
+					arg = sympy.S(arg,sympy.abc._clash)
 					fs = list(arg.free_symbols)
 					if len(fs) == 1 and str(arg)==str(fs[0]):
 						raise errors.ParameterInvalidError("There is no parameter, and no interpretation, of '%s' which is recognised by Parameters." % arg)
@@ -665,7 +665,10 @@ class Parameters(object):
 					if isinstance(param,Quantity):
 						raise errors.SymbolicEvaluationError("Symbolic expressions can only be evaluated when using scaled parameters. Attempted to use '%s' in '%s', which would yield a united quantity." % (sym,arg))
 					params[str(sym)] = self.__get_param(str(sym),**kwargs)
-				return float(arg.subs(params).evalf())
+				result = arg.subs(params).evalf()
+				if result.as_real_imag()[1] != 0:
+					return complex(result)
+				return float(result)
 			except errors.ParameterInvalidError as e:
 				raise e
 			except Exception as e:
@@ -756,7 +759,7 @@ class Parameters(object):
 	
 	def __sympy_to_function(self,expr):
 		try:
-			expr = sympy.S(expr)
+			expr = sympy.S(expr,sympy.abc._clash)
 			syms = list(expr.free_symbols)
 			f = sympy.utilities.lambdify(syms,expr)
 
@@ -1114,7 +1117,7 @@ class Parameters(object):
 			return False
 		if isinstance(param,str):
 			try:
-				symbols = sympy.S(param).free_symbols
+				symbols = sympy.S(param,sympy.abc._clash).free_symbols
 				for symbol in symbols:
 					if symbol != param:
 						if not self.is_constant(str(symbol),**params):
