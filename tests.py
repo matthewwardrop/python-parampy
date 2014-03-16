@@ -231,6 +231,8 @@ class TestParameters(unittest.TestCase):
 		self.p << {'y':'_x^2'}
 		self.assertEqual( np.round(self.p.range('_y',x=[0.1,0.2,0.3]),4).tolist(), [0.01,0.04,0.09] )
 
+		self.assertEqual( self.p.range('_z',z=(1,'$'),k=[1,2,3,4]), [1,1,1,1] )
+
 	def test_passthrough(self):
 		self.assertEqual( self.p(10.0), 10.0 )
 		self.assertEqual( self.p( (10,'m') ), SIQuantity(10.0,'m') )

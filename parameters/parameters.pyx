@@ -982,7 +982,7 @@ class Parameters(object):
 		
 		# Separate out static coefficients
 		for param,pam_range in ranges.items():
-			if not isinstance(pam_range,(list,np.ndarray,tuple)): # Using negated check to maximise allowed input types.
+			if not isinstance(pam_range,(list,np.ndarray,tuple)) or type(pam_range) is tuple and len(pam_range)<3: # Using negated check to maximise allowed input types.
 				static[param] = pam_range
 
 		# Generate sequences in the context of static coefficients
