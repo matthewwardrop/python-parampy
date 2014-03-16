@@ -513,14 +513,69 @@ class Parameters(object):
 		
 		if len(restrict) == 0:
 			return
-		
-		# Check to see whether override arguments are functions; and if so
-		# first evaluate them.
+
+
+		def function_ordering(pam,f,pam_order):
+			pam = self.__get_pam_name(pam) # HUH? WHY NOT RETURN BASE VARIABLE
+			deps = [self.__get_pam_name(dep) for dep in inspect.getargspec(f).args]
+
+			pam_index = -1
+			for i,o in enumerate(pam_order):
+				if pam in o:
+					pam_index = i
+					break
+
+			dep_depth = {}
+			max_dep = len(pam_order)
+			for i,o in enumerate(pam_order):
+				for dep in deps:
+					if dep not in dep_depth and dep in o:
+						dep_depth[dep] = i
+						if i < max_dep:
+							max_dep = i
+
+			if pam_index == -1:
+				if max_dep - 1 >= 0:
+					pam_order[max_dep-1].append(pam)
+				else:
+					pam_order.insert( max_dep, [pam] )
+			elif pam_index > max_dep:
+				raise ValueError("Function dependencies are circular.")
+			elif pam_index == max_dep:
+				entry = pam_order[max_dep]
+				entry.remove(pam)
+				entry.insert(max_dep,[pam])
+
+			unused_deps = []
+			for dep in deps:
+				if dep not in dep_depth:
+					unused_deps.append(dep)
+			if len(unused_deps) > 0:
+				pam_order.append( unused_deps )
+
+			return pam_order
+			
+
+		# Order overrides to avoid clash of functions
+		pam_order2 = []
 		for pam in restrict:
 			val = kwargs[pam]
 			if type(val) is str:
 				val = self.__get_function(val)
+				kwargs[pam] = val
+			if type(val) is tuple and type(val[0]) is types.FunctionType:
+				val = val[0]
 			if type(val) is types.FunctionType:
+				pam_order = function_ordering(pam,val,pam_order2)
+
+		pam_order = []
+		for pams in pam_order2[::-1]:
+			pam_order.extend(pams)
+
+		# First evaluate functions to avoid errors later on
+		for pam in pam_order:
+			if pam in kwargs:
+				val = kwargs[pam]
 				new = kwargs.copy()
 				del new[pam]
 				kwargs[pam] = self.__get_param(val,**new)
@@ -649,6 +704,10 @@ class Parameters(object):
 		return q
 	
 	def __eval(self,arg,**kwargs):
+		if isinstance(arg,Quantity):
+			return self.__get_quantity(arg,scaled=self.__default_scaled)
+		elif isinstance(arg,tuple):
+			return self.__get_quantity((self.__eval(arg[0],**kwargs),arg[1]),scaled=self.__default_scaled)
 		if isinstance(arg,types.FunctionType):
 			params = self.__get_params(*inspect.getargspec(arg)[0],**kwargs)
 			return arg(* (val for val in [params[self.__get_pam_name(x)] for x in inspect.getargspec(arg)[0]] ) )
@@ -673,8 +732,6 @@ class Parameters(object):
 				raise e
 			except Exception as e:
 				raise errors.SymbolicEvaluationError("Error evaluating symbolic statement '%s'. The message from SymPy was: `%s`." % (arg,e))
-		elif isinstance(arg,(tuple,Quantity)):
-			return self.__get_quantity(arg,scaled=self.__default_scaled)
 		elif isinstance(arg,(complex,int,float,long)):
 			return arg
 		

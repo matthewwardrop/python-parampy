@@ -4,7 +4,6 @@ import numpy as np
 
 from parameters import Parameters,SIDispenser,Quantity,SIQuantity,Unit, UnitsDispenser, Units, errors
 
-
 print "Performance Tests"
 print "-----------------"
 print
@@ -275,6 +274,13 @@ class TestParameters(unittest.TestCase):
 		self.assertEqual(self.p.range('_x',x=('-_k','_k',3)),[-2,0,2])
 		self.assertEqual(self.p.range('_x',x=['_k','2*_k','_k/2'],k=[1,3,5]),[1,6,2.5])
 		self.assertEqual(self.p.range('_x',x=['_k','2*_k','_k/2'],k=(1,3,3)),[1,4,1.5])
+
+	def test_lambda_init(self):
+
+		self.p.z = 2
+		self.assertEqual( self.p('_x',x=(lambda _k:_k**2, '$'),k=2), 4)
+		self.assertEqual( self.p('_x',x=(lambda _k:_k**2, '$'),k=lambda z:z), 4)
+
 
 if __name__ == '__main__':
 	unittest.main()
