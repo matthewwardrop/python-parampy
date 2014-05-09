@@ -88,6 +88,17 @@ class TestQuantity(unittest.TestCase):
 		self.assertEqual( (SIQuantity(1,'m')**2 + SIQuantity(1,'nm')**2 ).value, 1+1e-18 )
 		self.assertEqual( (SIQuantity(1,'m') + SIQuantity(1,'nm') ).value, 1+1e-9 )
 	
+	def test_zero(self):
+		self.assertEqual( (SIQuantity(1,'m') + 0 ).value, 1 )
+		self.assertEqual( (0 + SIQuantity(1,'m') ).value, 1 )
+	
+	def test_scaling(self):
+		self.assertEqual( (2*SIQuantity(1,'m')).value, 2 )
+		self.assertEqual( (SIQuantity(1,'m')/2.).value, 0.5 )
+	
+	def test_div(self):
+		self.assertEqual( 2./SIQuantity(3,'m'), SIQuantity(2./3,'1/m') )
+	
 class TestParameters(unittest.TestCase):
 
 	def setUp(self):

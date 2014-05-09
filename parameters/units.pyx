@@ -434,6 +434,17 @@ class Units(object):
 	
 	def __div__(self,other):
 		return self.__new( self.__div_units(self.units,other.units) )
+
+	def __truediv__(self,other):
+		return self.__div__(other)
+
+	def __rdiv__(self,other):
+		if other == 1:
+			return self.__pow__(-1)
+		raise ValueError("Units cannot have numerical size.")
+
+	def __rtruediv__(self,other):
+		return self.__rdiv__(other)
 	
 	def __pow__(self,other):
 		new_units = self.units

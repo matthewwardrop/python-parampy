@@ -36,7 +36,7 @@ else:
     ]
 
 setup(name='python-parameters',
-      version='1.1.4',
+      version='1.1.5',
       description='A parameter manager that keeps track of physical (or numerical) quantities, and the relationships between them.',
       author='Matthew Wardrop',
       author_email='mister.wardrop@gmail.com',
@@ -46,7 +46,7 @@ setup(name='python-parameters',
       packages=['parameters'],
       cmdclass = cmdclass,
       ext_modules = ext_modules,
-      requires=['numpy','sympy','scipy'],
+      requires=['numpy','sympy(>0.7.2)','scipy'],
       license='''The MIT License (MIT)
 
 Copyright (c) 2013 Matthew Wardrop

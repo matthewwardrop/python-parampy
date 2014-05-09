@@ -94,27 +94,58 @@ class Quantity(object):
 		return str(self.value) + " " + str(self.units)
 
 	def __add__(self,other):
+		if other == 0:
+			return self.new(self.value,self.units)
 		scale = other.units.scale(self.units)
 		return self.new(self.value+scale*other.value,self.units)
+
+	def __radd__(self,other):
+		return self.__add__(other)
 	
 	def __sub__(self,other):
+		if other == 0:
+			return self.new(self.value,self.units)
 		scale = other.units.scale(self.units)
 		return self.new(self.value-scale*other.value,self.units)
+
+	def __rsub__(self,other):
+		if other == 0:
+			return self.new(-self.value,self.units)
+		scale = other.units.scale(self.units)
+		return self.new(-self.value+scale*other.value,self.units)
 	
 	def __abs__(self):
 		return self.new(abs(self.value),self.units)
 	
-	def __rsub__(self,other):
-		scale = other.units.scale(self.units)
-		return self.new(-self.value+scale*other.value,self.units)
-	
 	def __mul__(self,other):
-		units = self.units*other.units
-		return self.new(self.value*other.value,units)
+		try:
+			units = self.units*other.units
+			return self.new(self.value*other.value,units)
+		except AttributeError:
+			return self.new(self.value*other,self.units)
+
+	def __rmul__(self,other):
+		try:
+			units = self.units*other.units
+			return self.new(self.value*other.value,units)
+		except AttributeError:
+			return self.new(self.value*other,self.units)
 	
 	def __div__(self,other):
-		units = self.units/other.units
-		return self.new(self.value/other.value,units)
+		try:
+			units = self.units/other.units
+			return self.new(self.value/other.value,units)
+		except AttributeError:
+			return self.new(self.value/other,self.units)
+
+	def __truediv__(self,other):
+		return self.__div__(other)
+
+	def __rdiv__(self,other):
+		return self.new(other/self.value,1/self.units)
+
+	def __rtruediv__(self,other):
+		return self.__rdiv__(other)
 	
 	def __pow__(self,other):
 		return self.new(self.value**other, self.units**other)

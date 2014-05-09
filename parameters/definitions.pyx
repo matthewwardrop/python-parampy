@@ -28,7 +28,7 @@ class SIDispenser(UnitsDispenser):
 		
 		# Fundamental SI units
 		self \
-			+ Unit(["constant","non-dim"],"",1.0 ) \
+			+ Unit(["constant","non-dim","1"],"",1.0 ) \
 			+ Unit(["metre","meter"],"m",1.0 ).set_dimensions(length=1) \
 			+ Unit("second","s",1.0).set_dimensions(time=1) \
 			+ Unit("gram","g",1e-3).set_dimensions(mass=1) \
