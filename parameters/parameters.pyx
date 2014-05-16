@@ -1214,6 +1214,8 @@ class Parameters(object):
 		
 		p << getattr(profile,"parameters",{})
 		
+		p & getattr(profile,"parameter_units",{})
+		
 		return p
 	
 	def __rshift__(self,other):
