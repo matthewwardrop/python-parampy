@@ -1178,26 +1178,57 @@ class Parameters(object):
 		
 		raise errors.ExpressionOptimisationError("No way to optimise parameter expression: %s ." % param)
 	
-	def is_constant(self,param,**params):
-		if self.__get_pam_name(param) in params and isinstance(self.__get_quantity(params[param]),Quantity):
+	def is_constant(self,*args,**params):
+		param, wrt = None, []
+		if len(args) == 0:
+			raise ValueError("A parameter must be specified. Additional parameters may be passed, in which case this function returns true iff the parameter is constant with respect to to all additional parameters.")
+		if len(args) == 1:
+			param = args[0]
+		elif len(args) >= 2:
+			param = args[0]
+			wrt = args[1:]
+		
+		if len(wrt) == 0:
 			return True
-		if self.__get_pam_name(param) in self.__parameters:
-			if not isinstance( self.__parameters[self.__get_pam_name(param)], types.FunctionType):
-				return True
+		if param in wrt:
 			return False
-		if isinstance(param,str):
+		
+		param_name = self.__get_pam_name(param)
+		param_val = None
+		
+		if param_name in params:
+			param_val = params[param]
+		elif param_name in self.__parameters:
+			param_val = self.__parameters[param]
+		else:
 			try:
 				symbols = sympy.S(param,sympy.abc._clash).free_symbols
 				for symbol in symbols:
-					if symbol != param:
-						if not self.is_constant(str(symbol),**params):
+					if symbol != param_val:
+						if not self.is_constant(str(symbol),*wrt,**params):
 							return False
-					else:
-						raise errors.ParameterInvalidError("This parameters instance has no parameter named: '%s'" % param)
 				return True
+			except errors.ParameterInvalidError as e:
+				raise e
 			except:
-				pass
-		raise errors.ParameterInvalidError("This parameters instance has no parameter named: '%s'" % param)
+				raise errors.ParameterInvalidError("This parameters instance has no parameter named '%s', and none was provided. Parameter may or may not be constant." % param)
+		
+		if isinstance(param_val,str):
+			param_val = self.optimise(param_val)
+		else:
+			param_val = self.__get_quantity(param_val)
+		
+		if isinstance(param_val,Quantity):
+			return True
+		elif isinstance(param_val, types.FunctionType):
+			deps = inspect.getargspec(param_val).args
+			for dep in deps:
+				dep = self.__get_pam_name(dep)
+				if dep in wrt or not self.is_constant(dep,*wrt,**params):
+					return False
+			return True
+		else:
+			raise ValueError("Unable to check whether parameter '%s' of type '%s' is constant." % (param_val,type(param_val)))
 
 	################## LOAD / SAVE PROFILES ################################
 	
