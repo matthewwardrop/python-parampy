@@ -1167,18 +1167,60 @@ class Parameters(object):
 	
 	def optimise(self,param):
 		'''
-		Optimise the parameter query operator to fast operation times.
+		Optimise the parameter query operator for fast operation times.
 		'''
 		
-		if param is None or isinstance(param,types.FunctionType) or self.__is_valid_param(param):
+		if param is None or isinstance(param,types.FunctionType) or isinstance(param,str) and self.__is_valid_param(param):
 			return param
 		
-		elif isinstance(param,str):
+		elif isinstance(param,str) or type(param).__module__.startswith('sympy'):
 			return self.__sympy_to_function(param)
 		
 		raise errors.ExpressionOptimisationError("No way to optimise parameter expression: %s ." % param)
 	
+	def is_resolvable(self,*args,**params):
+		'''
+		Returns True if the parameter can be successfully evaluated, and False otherwise. This method actually goes through 
+		the process of evaluating the parameter, so if you need its value, it is probably better to use a
+		try-except block in your code around the usual parameter extraction code.
+		'''
+		try:
+			self(*args,**params)
+			return True
+		except:
+			return False
+	
+	def is_function(self,param,**params):
+		'''
+		Returns True if the parameter depends upon other parameters; and False otherwise. This method accepts 
+		also accepts strings (as representations of mathematical expressions). Note that this method does NOT
+		accept tuples.
+		'''
+		param_name = self.__get_pam_name(param)
+		param_val = None
+		
+		if param_name in params:
+			param_val = params[param]
+		elif param_name in self.__parameters:
+			param_val = self.__parameters[param]
+		else:
+			try:
+				symbols = sympy.S(param,sympy.abc._clash).free_symbols
+				for symbol in symbols:
+					if str(symbol) != str(param):
+						return True
+			except:
+				raise errors.ParameterInvalidError("This parameters instance has no parameter named '%s', and none was provided. Parameter may or may not be constant." % param)
+		
+		if isinstance(param_val,types.FunctionType) or isinstance(param_val,str) and isinstance(self.optimise(param_val),(types.FunctionType,str)):
+			return True
+		return False
+	
 	def is_constant(self,*args,**params):
+		'''
+		Returns True if the first parameter provided in the args list is independent of all subsequent ones, when evaluated using `params`. Returns False otherwise. Note 
+		that this method does not accept parameters as part of a tuple.
+		'''
 		param, wrt = None, []
 		if len(args) == 0:
 			raise ValueError("A parameter must be specified. Additional parameters may be passed, in which case this function returns true iff the parameter is constant with respect to to all additional parameters.")
@@ -1204,7 +1246,7 @@ class Parameters(object):
 			try:
 				symbols = sympy.S(param,sympy.abc._clash).free_symbols
 				for symbol in symbols:
-					if symbol != param_val:
+					if str(symbol) != str(param_val):
 						if not self.is_constant(str(symbol),*wrt,**params):
 							return False
 				return True
