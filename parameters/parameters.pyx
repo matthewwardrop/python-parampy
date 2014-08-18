@@ -1079,45 +1079,53 @@ class Parameters(object):
 		
 		return values
 	
+	def __range_sampler(self,sampler):
+		if isinstance(sampler,str):
+			if sampler == 'linear':
+				return np.linspace
+			elif sampler == 'log':
+				def logspace(start,end,count):
+					logged = np.logspace(1,10,count)
+					return (logged-logged[0])*(end-start)/logged[-1]+start
+				return logspace
+			elif sampler == 'invlog':
+				def logspace(start,end,count):
+					logged = np.logspace(1,10,count)
+					return (logged[::-1]-logged[0])*(end-start)/logged[-1]+start
+				return logspace
+			else:
+				raise ValueError( "Unknown sampler: %s" % sampler )
+		elif type(sampler) == types.FunctionType:
+			return sampler
+		else:
+			raise ValueError("Unknown type for sampler: %s" % type(sampler))
+	
 	def __range_interpret(self,param,pam_range,params=None):
-		if isinstance(pam_range,tuple) and len(pam_range) in [3,4]:
-			start,end,count,sampler = 0,1,1,np.linspace
+		if isinstance(pam_range,tuple) and len(pam_range) >= 3:
+			if not self.__default_scaled:
+				warnings.warn("Range interpretation is not guaranteed to work when scaled parameters are not the default.")
 			
-			if len(pam_range) == 4: # Then assume format (start, end, count, sampler), with sampler(start,stop,count)
-				start,end,count,sampler = pam_range
+			if len(pam_range) >= 4: # Then assume format (*args, sampler), with sampler(*args) being the final result.
+				args = list(pam_range[:-1])
+				sampler = pam_range[-1]
 			elif len(pam_range) == 3: # Then assume format (start, end, count)
-				start,end,count = pam_range
+				args = list(pam_range)
+				sampler = 'linear'
 			else:
 				raise ValueError ("Unknown range specification format: %s." % pam_range)
 
-			if isinstance(sampler,str):
-				if sampler == 'linear':
-					sampler = np.linspace
-				elif sampler == 'log':
-					def logspace(start,end,count):
-						logged = np.logspace(1,10,count)
-						return (logged-logged[0])*(end-start)/logged[-1]+start
-					sampler = logspace
-				elif sampler == 'invlog':
-					def logspace(start,end,count):
-						logged = np.logspace(1,10,count)
-						return (logged[::-1]-logged[0])*(end-start)/logged[-1]+start
-					sampler = logspace
-				else:
-					raise ValueError( "Unknown sampler: %s" % sampler )
-
-			start_params = {param:start}
-			end_params = {param:end}
-			if type(params) is dict:
-				start_params.update(params)
-				end_params.update(params)
+			sampler = self.__range_sampler(sampler)
+			
+			for i,arg in enumerate(args):
+				if type(arg) in (tuple,str) :
+					pars = {param:arg}
+					if type(params) is dict:
+						pars.update(params)
+					args[i] = self.__get(param,**pars)
 
 			# Note: param keyword cannot appear in params without keyword repetition in self.range.
-			return sampler(
-					self.__get(self.__get_pam_scaled_name(param),**start_params),
-					self.__get(self.__get_pam_scaled_name(param),**end_params),
-					count
-					)
+			# TODO: Allow to work sensibly when unitted values are the default in the Parameters object.
+			return sampler(*args)
 		return pam_range
 	
 	################## CONVERT UTILITY #####################################
