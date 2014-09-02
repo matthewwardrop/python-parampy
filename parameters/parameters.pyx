@@ -508,57 +508,46 @@ class Parameters(object):
 		as overrides also. An warning is thrown if these variables are specified also.
 		'''
 		
+		if len(kwargs) == 0:
+			return
+
 		if restrict is None:
 			restrict = kwargs.keys()
 		
 		if len(restrict) == 0:
 			return
-
-
-		def function_ordering(pam,f,pam_order):
-			pam = self.__get_pam_name(pam) # HUH? WHY NOT RETURN BASE VARIABLE
-			deps = [self.__get_pam_name(dep) for dep in inspect.getargspec(f).args]
-
-			pam_index = -1
-			for i,o in enumerate(pam_order):
-				if pam in o:
-					pam_index = i
-					break
-
-			dep_depth = {}
-			max_dep = len(pam_order)
-			for i,o in enumerate(pam_order):
-				for dep in deps:
-					if dep not in dep_depth and dep in o:
-						dep_depth[dep] = i
-						if i < max_dep:
-							max_dep = i
-
-			if pam_index == -1:
-				if max_dep - 1 >= 0:
-					pam_order[max_dep-1].append(pam)
-				else:
-					pam_order.insert( max_dep, [pam] )
-			elif pam_index > max_dep:
+		
+		def pam_ordering(dependencies,pam_order=[]):
+			'''
+			This function returns parameter names in the following format:
+			[ param_name, param_name, ...]
+			Such that for any index, any parameters with greater index do 
+			not depend on parameters with index less than or equal to that index.
+			'''
+			new = set()
+			for pam,deps in dependencies.items():
+				if pam not in pam_order:
+					for dep in deps:
+						if dep not in pam_order and (dep not in dependencies or len(dependencies[dep].difference(set(pam_order)))):
+							pam_order.append(dep)
+							new.add(dep)
+					if len( deps.difference(set(pam_order))) == 0:
+						pam_order.append(pam)
+						new.add(pam)
+			
+			if len(new) == 0 and len(set(dependencies.keys()).difference(set(pam_order))) != 0:
 				raise ValueError("Function dependencies are circular.")
-			elif pam_index == max_dep:
-				entry = pam_order[max_dep]
-				entry.remove(pam)
-				entry.insert(max_dep,[pam])
-
-			unused_deps = []
-			for dep in deps:
-				if dep not in dep_depth:
-					unused_deps.append(dep)
-			if len(unused_deps) > 0:
-				pam_order.append( unused_deps )
-
-			return pam_order
+			elif len(new) == 0:
+				return pam_order
+			else:
+				return pam_ordering(dependencies,pam_order)
 			
 
 		# Order overrides to avoid clash of functions
-		pam_order2 = []
+		dependencies = {}
 		for pam in restrict:
+			if pam[0] == "_":
+				raise ValueError("Parameter type is autodetected. Do not use '_' to switch between scaled and unitted parameters.")
 			val = kwargs[pam]
 			if type(val) is str:
 				val = self.__get_function(val)
@@ -566,12 +555,12 @@ class Parameters(object):
 			if type(val) is tuple and type(val[0]) is types.FunctionType:
 				val = val[0]
 			if type(val) is types.FunctionType:
-				pam_order = function_ordering(pam,val,pam_order2)
-
-		pam_order = []
-		for pams in pam_order2[::-1]:
-			pam_order.extend(pams)
-
+				pam = self.__get_pam_name(pam)
+				deps = [self.__get_pam_name(dep) for dep in inspect.getargspec(val).args]
+				dependencies[pam] = set(deps)
+		
+		pam_order = pam_ordering(dependencies)
+		#print pam_order
 		# First evaluate functions to avoid errors later on
 		for pam in pam_order:
 			if pam in kwargs:
@@ -596,8 +585,9 @@ class Parameters(object):
 						raise e
 					warnings.warn(errors.ParameterInconsistentWarning("Parameters are probably inconsistent as %s was overridden, but is not invertable, and so the underlying variables (%s) have not been updated." % (pam, ','.join(inspect.getargspec(self.__parameters.get(pam)).args))))
 		
-		kwargs.update(new)
-		self.__process_override(kwargs,restrict=new.keys())
+		if len(new) != 0:
+			kwargs.update(new)
+			self.__process_override(kwargs,restrict=new.keys())
 	
 	def __eval_function(self,param,**kwargs):
 		'''
@@ -658,6 +648,7 @@ class Parameters(object):
 			return value
 		else:
 			if scaled:
+				
 				# If tuple of (value,unit) is presented
 				if t is tuple:
 					if len(value) != 2:

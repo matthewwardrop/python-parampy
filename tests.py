@@ -15,6 +15,8 @@ q = {'x':x}
 #p['x'] = (0,1e24)
 
 def testP():
+	return p('x')
+def testP2():
 	return p('x',x=1)
 def testD():
 	return q['x']
@@ -25,8 +27,13 @@ def timer():
 	time1 = timeit.timeit("testP()", setup="from __main__ import testP",number=100000)
 	time2 = timeit.timeit("testD()", setup="from __main__ import testD",number=100000)
 	time3 = timeit.timeit("testR()", setup="from __main__ import testR",number=100000)
+	time4 = timeit.timeit("testP2()", setup="from __main__ import testP2",number=100000)
+	print "p('x'):"
 	print time1/time2, "times slower than dict at %f cf %f" % (time1,time2)
 	print time1/time3, "times slower than raw at %f cf %f" % (time1,time3)
+	print "p('x',x=1):"
+	print time4/time2, "times slower than dict at %f cf %f" % (time1,time2)
+	print time4/time3, "times slower than raw at %f cf %f" % (time1,time3)
 timer()
 
 profile.run('testP()',filename='pam_extract.pstats')
@@ -34,7 +41,6 @@ profile.run('testP()',filename='pam_extract.pstats')
 print
 print " - Functional Evalution (y=x^2)"
 p(y=lambda x: x**2)
-
 o = p.optimise('x^2')
 def testP():
 	return p(o)
