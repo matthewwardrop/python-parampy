@@ -783,6 +783,8 @@ class Parameters(object):
 		self.__check_valid_params(kwargs,allow_leading_underscore=False)
 		
 		for param,val in kwargs.items():
+			if param in self.__cache_funcs:
+				self.__cache_funcs[param] = None
 			if param in self.__cache_scaled: # Clear cache if present.
 				del self.__cache_scaled[param]
 			if isinstance(val,(types.FunctionType,str)):
