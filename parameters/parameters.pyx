@@ -1265,6 +1265,8 @@ class Parameters(object):
 			deps = inspect.getargspec(param_val).args
 			for dep in deps:
 				dep = self.__get_pam_name(dep)
+				if dep == param:
+					continue
 				if dep in wrt or not self.is_constant(dep,*wrt,**params):
 					return False
 			return True
