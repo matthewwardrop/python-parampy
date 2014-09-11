@@ -278,6 +278,7 @@ class Parameters(object):
 		self.__cache_deps = {}
 		self.__cache_sups = {}
 		self.__cache_scaled = {}
+		self.__cache_funcs = {}
 		
 		self.__scaling_cache = {}
 		
@@ -612,13 +613,19 @@ class Parameters(object):
 			
 			arguments.append(self.__get_param(arg,**kwargs))
 		
-		r = f(*arguments)
-		if not isinstance(r,list):
-			r = [r]
-		
-		# If we are not performing the inverse operation
-		if param not in kwargs:
-			return {param: self.__get_quantity(r[0],param=param)}
+		cached = self.__cache_func_handler(param, params=arguments)
+		if cached is not None:
+			return {param:cached}
+		else:
+			r = f(*arguments)
+			if not isinstance(r,list):
+				r = [r]
+			
+			# If we are not performing the inverse operation
+			if param not in kwargs:
+				value = self.__get_quantity(r[0],param=param)
+				self.__cache_func_handler(param, value=value, params=arguments)
+				return {param: value}
 		
 		# Deal with the inverse operation case
 		inverse = {}
@@ -633,6 +640,33 @@ class Parameters(object):
 				inverse[self.__get_pam_name(arg)] = self.__get_quantity(r[i],param=pam)
 		
 		return inverse
+	
+	def __cache_func_handler(self, param, value=None, params=None):
+		'''
+		Retrieve and set function cache.
+		'''
+		if param in self.__cache_funcs:
+			if value is None:
+				if self.__cache_funcs[param] is None:
+					return None
+				value,conditions = self.__cache_funcs[param]
+				if conditions == params:
+					return value
+				else:
+					return None
+			else:
+				self.__cache_funcs[param] = (value,params)
+		
+	
+	def cache(self,**kwargs):
+		'''
+		Allow enabling and disabling of cache for parameter functions.
+		'''
+		for kwarg,cache_on in kwargs.items():
+			if kwarg in self.__cache_funcs and not cache_on:
+				self.__cache_funcs.pop(kwarg)
+			if kwarg not in self.__cache_funcs and cache_on:
+				self.__cache_funcs[kwarg] = None
 	
 	def __get_quantity(self, value, param=None, unit=None, scaled=False):
 		'''
@@ -749,6 +783,8 @@ class Parameters(object):
 		self.__check_valid_params(kwargs,allow_leading_underscore=False)
 		
 		for param,val in kwargs.items():
+			if param in self.__cache_funcs:
+				self.__cache_funcs[param] = None
 			if param in self.__cache_scaled: # Clear cache if present.
 				del self.__cache_scaled[param]
 			if isinstance(val,(types.FunctionType,str)):
