@@ -738,6 +738,12 @@ class Parameters(object):
 		if isinstance(arg,types.FunctionType):
 			params = self.__get_params(*inspect.getargspec(arg)[0],**kwargs)
 			return arg(* (val for val in [params[self.__get_pam_name(x)] for x in inspect.getargspec(arg)[0]] ) )
+		elif isinstance(arg,tuple) and type(arg) == types.FunctionType:
+			params = self.__get_params(*inspect.getargspec(arg)[0],**kwargs)
+			return self.__get_quantity(
+									( arg[0](* (val for val in [params[self.__get_pam_name(x)] for x in inspect.getargspec(arg)[0]] ) ) ,
+									arg[1] ),
+									scaled=self.__default_scaled)
 		elif isinstance(arg,str) or arg.__class__.__module__.startswith('sympy'):
 			try:
 				if isinstance(arg,str):
