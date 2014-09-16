@@ -98,6 +98,8 @@ class Quantity(object):
 			return self.new(self.value,self.units)
 		elif type(other) is tuple and len(other) == 2:
 			other = self.new(*other)
+		elif not isinstance(other,Quantity):
+			other = self.new(other,None)
 		scale = other.units.scale(self.units)
 		return self.new(self.value+scale*other.value,self.units)
 
@@ -109,6 +111,8 @@ class Quantity(object):
 			return self.new(self.value,self.units)
 		elif type(other) is tuple and len(other) == 2:
 			other = self.new(*other)
+		elif not isinstance(other,Quantity):
+			other = self.new(other,None)
 		scale = other.units.scale(self.units)
 		return self.new(self.value-scale*other.value,self.units)
 
@@ -117,6 +121,8 @@ class Quantity(object):
 			return self.new(-self.value,self.units)
 		elif type(other) is tuple and len(other) == 2:
 			other = self.new(*other)
+		elif not isinstance(other,Quantity):
+			other = self.new(other,None)
 		scale = other.units.scale(self.units)
 		return self.new(-self.value+scale*other.value,self.units)
 

@@ -259,6 +259,9 @@ class TestParameters(unittest.TestCase):
 
 		self.assertEqual( self.p.range('_z',z=(1,'$'),k=[1,2,3,4]), [1,1,1,1] )
 
+		self.assertEqual( self.p.range('_z',z=(1,"2*_x",4),x=2), [1,2,3,4])
+		self.assertEqual( self.p.range('_z',z=((1,"m"),("2*_x","m"),4),x=2), [1,2,3,4])
+
 	def test_passthrough(self):
 		self.assertEqual( self.p(10.0), 10.0 )
 		self.assertEqual( self.p( (10,'m') ), SIQuantity(10.0,'m') )
