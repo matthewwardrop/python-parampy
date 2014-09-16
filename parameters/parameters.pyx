@@ -555,6 +555,8 @@ class Parameters(object):
 				kwargs[pam] = val
 			if type(val) is tuple and type(val[0]) is types.FunctionType:
 				val = val[0]
+			if type(val) is tuple and type(val[0]) is str:
+				val = self.__get_function(val[0])
 			if type(val) is types.FunctionType:
 				pam = self.__get_pam_name(pam)
 				deps = [self.__get_pam_name(dep) for dep in inspect.getargspec(val).args]
