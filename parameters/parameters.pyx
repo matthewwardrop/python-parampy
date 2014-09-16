@@ -307,6 +307,10 @@ class Parameters(object):
 		self.__units_custom.append(unit)
 
 	def scaling(self,*args,**kwargs):
+		'''
+		Sets the scaling of a particular dimension. For example:
+		p.scaling(length='m')
+		'''
 		self.__scaling_cache = {}
 
 		for arg in kwargs:
@@ -326,6 +330,10 @@ class Parameters(object):
 			return output
 
 	def unit_scaling(self,*params):
+		'''
+		Sets the scaling of a particular unit. Care should be taken as this could
+		result in inconsistent scalings.
+		'''
 		l = list(self.__unit_scaling(param) for param in params)
 		if len(params) == 1:
 			return l[0]
@@ -340,7 +348,9 @@ class Parameters(object):
 			return unit
 		
 		raise errors.UnitInvalidError( "No coercion for %s to Units." % unit )
-
+	
+	
+	################## ENABLE USE WITH 'with' ####################################
 	def __enter__(self):
 		self.__context_save = {
 			'parameters_spec': copy.deepcopy(self.__parameters_spec),
@@ -373,88 +383,7 @@ class Parameters(object):
 		
 		self.__scaling_cache = {}
 			
-	############# PARAMETER RETRIEVAL ##########################################
-	
-	def __get(self,*args,**kwargs):
-		'''
-		Retrieve the parameters specified in args, with temporary values overriding
-		defaults as in kwargs. Parameters are returned as Quantity's.
-		'''
-		self.__process_override(kwargs)
-
-		if len(args) == 1:
-			result = self.__get_param(args[0],**kwargs)
-			if self.__parameters_bounds is not None:
-				kwargs[args[0]] = result
-				self.__forward_check_bounds(args,kwargs)
-			return result
-		
-		results = self.__get_params(*args,**kwargs)
-		kwargs.update(results)
-		if self.__parameters_bounds is not None:
-			kwargs.update(results)
-			self.__forward_check_bounds(args,kwargs)
-		return results
-	
-	def __forward_check_bounds(self,args,kwargs):
-		checked = []
-		for arg in args:
-			if isinstance(arg,str):
-				for pam in self.__get_pam_sups(arg):
-					if pam in self.__parameters_bounds:
-						keys = self.__get_pam_deps(pam)
-						check = True
-						for key in keys:
-							if key not in kwargs and key not in self.__parameters:
-								check = False
-								break
-						if check:
-							self.__get(pam,**kwargs)
-						else:
-							warnings.warn(errors.ParameterBoundsUncheckedWarning("Parameter '%s' might be outside bounds. Insufficient parameters passed to check." % pam) )
-	
-	def __get_params(self,*args,**kwargs):
-		rv = {}
-		for arg in args:
-			rv[self.__get_pam_name(arg)] = self.__get_param(arg,**kwargs)
-		return rv
-		
-	
-	def __get_param(self,arg,**kwargs):
-		'''
-		Returns the value of a param `arg` with its dependent variables overriden
-		as in `kwargs`.
-		'''
-		pam_name = self.__get_pam_name(arg)
-		
-		# If the parameter is actually a function
-		if not isinstance(arg,str) or (pam_name not in kwargs and pam_name not in self.__parameters):
-			return self.__eval(arg,**kwargs)
-
-		else:
-			scaled = self.__default_scaled
-			if arg[:1] == "_": #.startswith("_"):
-				arg = arg[1:]
-				scaled=not scaled
-	
-			# If the parameter is temporarily overridden, return the override value
-			if arg in kwargs:
-				return self.__get_quantity(kwargs[arg],param=arg,scaled=scaled)
-
-			# If the parameter is a function, evaluate it with local parameter values (except where overridden in kwargs)
-			elif isinstance(self.__parameters[arg],types.FunctionType):
-				return self.__get_quantity(self.__eval_function(arg,**kwargs)[arg],param=arg,scaled=scaled)
-
-			# Otherwise, return the value currently stored in the parameters
-			else:
-				if scaled:
-					try:
-						return self.__cache_scaled[arg]
-					except:
-						self.__cache_scaled[arg] = self.__get_quantity(self.__parameters[arg],param=arg,scaled=scaled)
-						return self.__cache_scaled[arg]
-				return self.__get_quantity(self.__parameters[arg],param=arg,scaled=scaled)
-	
+	############# PARAMETER RESOLUTION #########################################
 	def __get_pam_name(self,param):
 		if isinstance(param,str):
 			if param[:1] == "_":
@@ -501,6 +430,94 @@ class Parameters(object):
 			if sups or param in self.__parameters:
 				self.__cache_sups[param] = sups
 			return sups
+	
+	
+	############# PARAMETER RETRIEVAL ##########################################
+	
+	def __get(self,*args,**kwargs):
+		'''
+		Retrieve the parameters specified in args, with temporary values overriding
+		defaults as in kwargs. Parameters are returned as Quantity's.
+		'''
+		self.__process_override(kwargs)
+
+		if len(args) == 1:
+			result = self.__get_param(args[0],**kwargs)
+			if self.__parameters_bounds is not None:
+				kwargs[args[0]] = result
+				self.__forward_check_bounds(args,kwargs)
+			return result
+		
+		results = self.__get_params(*args,**kwargs)
+		kwargs.update(results)
+		if self.__parameters_bounds is not None:
+			kwargs.update(results)
+			self.__forward_check_bounds(args,kwargs)
+		return results
+	
+	def __forward_check_bounds(self,args,kwargs):
+		'''
+		Check that bounds on parameters are not violated due to the changes
+		specified in args and kwargs.
+		'''
+		checked = []
+		for arg in args:
+			if isinstance(arg,str):
+				for pam in self.__get_pam_sups(arg):
+					if pam in self.__parameters_bounds:
+						keys = self.__get_pam_deps(pam)
+						check = True
+						for key in keys:
+							if key not in kwargs and key not in self.__parameters:
+								check = False
+								break
+						if check:
+							self.__get(pam,**kwargs)
+						else:
+							warnings.warn(errors.ParameterBoundsUncheckedWarning("Parameter '%s' might be outside bounds. Insufficient parameters passed to check." % pam) )
+	
+	def __get_params(self,*args,**kwargs):
+		rv = {}
+		for arg in args:
+			rv[self.__get_pam_name(arg)] = self.__get_param(arg,**kwargs)
+		return rv
+		
+	
+	def __get_param(self,arg,**kwargs):
+		'''
+		Returns the value of a param `arg` with its dependent variables overriden
+		as in `kwargs`. If `arg` is instead a function, a string, or a Quantity, action is taken to
+		evaluate it where possible.
+		'''
+		pam_name = self.__get_pam_name(arg)
+		
+		# If the parameter is actually a function or otherwise not directly in the dictionary of stored parameters
+		if not isinstance(arg,str) or (pam_name not in kwargs and pam_name not in self.__parameters):
+			return self.__eval(arg,**kwargs)
+
+		else:
+			scaled = self.__default_scaled
+			if arg[:1] == "_": #.startswith("_"):
+				arg = arg[1:]
+				scaled=not scaled
+	
+			# If the parameter is temporarily overridden, return the override value
+			if arg in kwargs:
+				return self.__get_quantity(kwargs[arg],param=arg,scaled=scaled)
+
+			# If the parameter is a function, evaluate it with local parameter values (except where overridden in kwargs)
+			elif isinstance(self.__parameters[arg],types.FunctionType):
+				return self.__get_quantity(self.__eval_function(arg,**kwargs)[arg],param=arg,scaled=scaled)
+
+			# Otherwise, return the value currently stored in the parameters
+			else:
+				if scaled:
+					try:
+						return self.__cache_scaled[arg]
+					except:
+						self.__cache_scaled[arg] = self.__get_quantity(self.__parameters[arg],param=arg,scaled=scaled)
+						return self.__cache_scaled[arg]
+				return self.__get_quantity(self.__parameters[arg],param=arg,scaled=scaled)
 	
 	def __process_override(self,kwargs,restrict=None,abort_noninvertable=False):
 		'''
@@ -730,27 +747,27 @@ class Parameters(object):
 			
 		return q
 	
-	def __eval(self,arg,**kwargs):
-		if isinstance(arg,Quantity):
+	def __eval(self,*arg,**kwargs):
+		
+		arg = arg[0]
+		t = type(arg)
+		
+		if t == tuple:
+			return self.__get_quantity((self.__eval(arg[0],**kwargs),arg[1]),scaled=self.__default_scaled)
+		
+		elif isinstance(arg,Quantity):
 			return self.__get_quantity(arg,scaled=self.__default_scaled)
-		elif isinstance(arg,types.FunctionType):
+		
+		elif t == types.FunctionType:
 			params = self.__get_params(*inspect.getargspec(arg)[0],**kwargs)
 			return arg(* (val for val in [params[self.__get_pam_name(x)] for x in inspect.getargspec(arg)[0]] ) )
-		elif isinstance(arg,tuple) and type(arg[0]) == types.FunctionType:
-			params = self.__get_params(*inspect.getargspec(arg)[0],**kwargs)
-			return self.__get_quantity(
-									( arg[0](* (val for val in [params[self.__get_pam_name(x)] for x in inspect.getargspec(arg)[0]] ) ) ,
-									arg[1] ),
-									scaled=self.__default_scaled)
-		elif isinstance(arg,tuple):
-			return self.__get_quantity((self.__eval(arg[0],**kwargs),arg[1]),scaled=self.__default_scaled)
+		
 		elif isinstance(arg,str) or arg.__class__.__module__.startswith('sympy'):
 			try:
 				if isinstance(arg,str):
-					try:
+					if arg in self.__parameters:
 						return self.__get_param(arg,**kwargs)
-					except:
-						pass
+					
 					arg = sympy.S(arg,sympy.abc._clash)
 					fs = list(arg.free_symbols)
 					if len(fs) == 1 and str(arg)==str(fs[0]):
