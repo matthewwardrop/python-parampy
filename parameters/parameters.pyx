@@ -494,7 +494,6 @@ class Parameters(object):
 		# If the parameter is actually a function or otherwise not directly in the dictionary of stored parameters
 		if not isinstance(arg,str) or (pam_name not in kwargs and pam_name not in self.__parameters):
 			return self.__eval(arg,**kwargs)
-
 		else:
 			scaled = self.__default_scaled
 			if arg[:1] == "_": #.startswith("_"):
@@ -588,7 +587,7 @@ class Parameters(object):
 				new = kwargs.copy()
 				del new[pam]
 				kwargs[pam] = self.__get_param(val,**new)
-		
+
 		# Now, ratify these changes through the parameter sets to ensure
 		# that the effects of these overrides is properly implemented
 		new = {}
@@ -604,7 +603,7 @@ class Parameters(object):
 					if abort_noninvertable:
 						raise e
 					warnings.warn(errors.ParameterInconsistentWarning("Parameters are probably inconsistent as %s was overridden, but is not invertable, and so the underlying variables (%s) have not been updated." % (pam, ','.join(inspect.getargspec(self.__parameters.get(pam)).args))))
-		
+ 
 		if len(new) != 0:
 			kwargs.update(new)
 			self.__process_override(kwargs,restrict=new.keys())
@@ -760,14 +759,15 @@ class Parameters(object):
 		
 		elif t == types.FunctionType:
 			params = self.__get_params(*inspect.getargspec(arg)[0],**kwargs)
-			return arg(* (val for val in [params[self.__get_pam_name(x)] for x in inspect.getargspec(arg)[0]] ) )
-		
+			args = [val for val in [params[self.__get_pam_name(x)] for x in inspect.getargspec(arg)[0]] ] # Done separately to avoid memory leak when cythoned.
+			return arg(*args)
+
 		elif isinstance(arg,str) or arg.__class__.__module__.startswith('sympy'):
 			try:
 				if isinstance(arg,str):
 					if arg in self.__parameters:
 						return self.__get_param(arg,**kwargs)
-					
+
 					arg = sympy.S(arg,sympy.abc._clash)
 					fs = list(arg.free_symbols)
 					if len(fs) == 1 and str(arg)==str(fs[0]):
@@ -1089,6 +1089,7 @@ class Parameters(object):
 	################## RANGE UTILITY #######################################
 	
 	def range(self,*args,**ranges):
+		
 		values = None
 		static = {}
 		lists = {}
@@ -1167,7 +1168,7 @@ class Parameters(object):
 				sampler = 'linear'
 			else:
 				raise ValueError ("Unknown range specification format: %s." % pam_range)
-
+			
 			sampler = self.__range_sampler(sampler)
 			
 			for i,arg in enumerate(args):
@@ -1178,7 +1179,6 @@ class Parameters(object):
 					args[i] = self.__get(self.__get_pam_scaled_name(param),**pars)
 
 			# Note: param keyword cannot appear in params without keyword repetition in self.range.
-			# TODO: Allow to work sensibly when unitted values are the default in the Parameters object.
 			return sampler(*args)
 		return pam_range
 	
