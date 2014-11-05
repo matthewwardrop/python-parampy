@@ -1158,8 +1158,6 @@ class Parameters(object):
 	
 	def __range_interpret(self,param,pam_range,params=None):
 		if isinstance(pam_range,tuple) and len(pam_range) >= 3:
-			if not self.__default_scaled:
-				warnings.warn("Range interpretation is not guaranteed to work when scaled parameters are not the default.")
 			
 			if len(pam_range) >= 4: # Then assume format (*args, sampler), with sampler(*args) being the final result.
 				args = list(pam_range[:-1])
@@ -1173,11 +1171,11 @@ class Parameters(object):
 			sampler = self.__range_sampler(sampler)
 			
 			for i,arg in enumerate(args):
-				if type(arg) in (tuple,str) :
+				if isinstance(arg, (tuple,str,Quantity)):
 					pars = {param:arg}
 					if type(params) is dict:
 						pars.update(params)
-					args[i] = self.__get(param,**pars)
+					args[i] = self.__get(self.__get_pam_scaled_name(param),**pars)
 
 			# Note: param keyword cannot appear in params without keyword repetition in self.range.
 			# TODO: Allow to work sensibly when unitted values are the default in the Parameters object.
