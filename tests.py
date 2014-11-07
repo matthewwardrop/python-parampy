@@ -124,11 +124,11 @@ class TestParameters(unittest.TestCase):
 		self.p(x=1.)
 		self.assertEqual( self.p.x, SIQuantity(1.) )
 
-		self.p & {'x':'nm'}
-		self.assertEqual( self.p.x, SIQuantity(1,'nm') )
-
 		self.p(x=(1,"nm"))
 		self.assertEqual( self.p.x, SIQuantity(1,'nm') )
+
+		self.p & {'x':'m'}
+		self.assertEqual( self.p.x, SIQuantity(1e-9,'m') )
 
 	def test_function(self):
 		self.p(x=(2,'m'),y=(2,'m'),z=lambda x,y: x**2 + y**2)
@@ -186,6 +186,11 @@ class TestParameters(unittest.TestCase):
 		self.p(x=1)
 		self.assertEqual( self.p._x , 1.0 )
 		self.assertEqual( self.p.x, SIQuantity (1,'nm') )
+
+	def test_change_scaling(self):
+		self.p.x = (1,'m')
+		self.p & {'x':'nm'}
+		self.assertEqual( self.p.x, SIQuantity(1,'m') )
 
 	def test_scaled_inverse(self):
 		self.p & {'x':'nm','y':'nm'}
