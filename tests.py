@@ -187,6 +187,10 @@ class TestParameters(unittest.TestCase):
 		self.assertEqual( self.p._x , 1.0 )
 		self.assertEqual( self.p.x, SIQuantity (1,'nm') )
 
+		self.assertEqual( self.p.scaling('length'), SIQuantity(1,'nm') )
+		self.assertEqual( self.p.scaling('mass'), SIQuantity(1,'kg') )
+		self.assertEqual( self.p.scaling('length','mass'), {'length': SIQuantity(1,'nm'), 'mass': SIQuantity(1,'kg')})
+
 	def test_change_scaling(self):
 		self.p.x = (1,'m')
 		self.p & {'x':'nm'}

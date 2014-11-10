@@ -323,10 +323,12 @@ class Parameters(object):
 			else:
 				raise errors.ScalingDimensionInvalidError("Invalid scaling dimension %s." % arg)
 
+		if len(args) == 1:
+			return self.__scalings.get(args[0],Quantity(1,self.__units.basis()[args[0]],dispenser=self.__units))
 		if len(args) > 0:
 			output = {}
 			for arg in args:
-				output[arg] = self.__scalings[arg]
+				output[arg] = self.__scalings.get(arg,Quantity(1,self.__units.basis()[arg],dispenser=self.__units))
 			return output
 
 	def unit_scaling(self,*params):
@@ -334,10 +336,12 @@ class Parameters(object):
 		Sets the scaling of a particular unit. Care should be taken as this could
 		result in inconsistent scalings.
 		'''
-		l = list(self.__unit_scaling(param) for param in params)
+		r = {}
+		for param in params:
+			r[param] = self.__unit_scaling(param)
 		if len(params) == 1:
-			return l[0]
-		return l
+			return r[params[0]]
+		return r
 
 	def __get_unit(self,unit):
 
@@ -1208,7 +1212,7 @@ class Parameters(object):
 			return l[0]
 		return l
 
-	def convert(self, quantity, input=None, output=None, value=False):
+	def convert(self, quantity, input=None, output=None, value=True):
 
 		if isinstance(quantity,Quantity):
 			input = str(quantity.units)
