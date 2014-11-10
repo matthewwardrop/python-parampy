@@ -1,8 +1,8 @@
 # coding=utf-8
 
-from .units import UnitsDispenser,Unit
+from .units import UnitDispenser,Unit
 
-class SIDispenser(UnitsDispenser):
+class SIDispenser(UnitDispenser):
 	
 	def init_prefixes(self):
 		self._prefixes = [

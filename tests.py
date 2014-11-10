@@ -2,7 +2,7 @@ import timeit
 import cProfile as profile
 import numpy as np
 
-from parameters import Parameters,SIDispenser,Quantity,SIQuantity,Unit, UnitsDispenser, Units, errors
+from parameters import Parameters,SIDispenser,Quantity,SIQuantity,Unit, UnitDispenser, Units, errors
 
 print "Performance Tests"
 print "-----------------"
@@ -84,6 +84,7 @@ class TestUnitsDispenser(unittest.TestCase):
 
 	def test_get_units(self):
 		self.assertEqual(str(self.ud('kg^2/s')),'kg^2/s')
+		self.assertEqual(self.ud('kg^2/s*m'), self.ud('m/s*kg^2'))
 
 class TestQuantity(unittest.TestCase):
 
@@ -219,11 +220,11 @@ class TestParameters(unittest.TestCase):
 		self.assertEqual( self.p('_unit_add'), 1e-3 )
 
 	def test_conversion(self):
-		self.assertEqual(SIQuantity(1.,'mT'), self.p.convert(1.0,'mT','mT'))
-		self.assertEqual(SIQuantity(1e-3,'T'), self.p.convert(1.0,'mT','T'))
-		self.assertRaises(errors.UnitConversionError, self.p.convert, 1.0, 'kg', 's')
+		self.assertEqual(SIQuantity(1.,'mT'), self.p.convert(1.0,'mT','mT',value=False))
+		self.assertEqual(SIQuantity(1e-3,'T'), self.p.convert(1.0,'mT','T',value=False))
+		self.assertRaises(errors.UnitConversionError, self.p.convert, 1.0, 'kg', 's', value=False)
 		self.assertEqual(1e-3, self.p.convert(1.0,'mT'))
-		self.assertEqual(SIQuantity(1e3,'mT'), self.p.convert(1.0,output='mT'))
+		self.assertEqual(1e3, self.p.convert(1.0,output='mT'))
 		self.p.scaling(mass=(1,'g'))
 		self.assertEqual(1.0, self.p.convert(1.0,'mT'))
 

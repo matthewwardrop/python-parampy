@@ -3,7 +3,7 @@ import errors
 from functools import total_ordering
 import numpy as np
 
-from .units import UnitsDispenser,Units
+from .units import UnitDispenser,Units
 from .definitions import SIDispenser
 
 @total_ordering
@@ -82,7 +82,7 @@ class Quantity(object):
 		return Quantity(value,units,dispenser=self._dispenser if dispenser is None else dispenser)
 
 	def _fallback_dispenser(self):
-		return UnitsDispenser()
+		return UnitDispenser()
 
 	def __call__(self,units,dispenser=None):
 		dispenser = dispenser if dispenser is not None else self._dispenser
