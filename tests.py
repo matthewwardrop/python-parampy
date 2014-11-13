@@ -2,66 +2,58 @@ import timeit
 import cProfile as profile
 import numpy as np
 
+import warnings
+warnings.filterwarnings("ignore")
+
 from parameters import Parameters,SIDispenser,Quantity,SIQuantity,Unit, UnitDispenser, Units, errors
 
 print "Performance Tests"
 print "-----------------"
 print
-print " - Simple Parameter Extraction"
 x = 1e23
 p=Parameters()
-p(x=x)
+p(x=x,y=2,z=3,a=1,b=2,c=3,d=2)
 q = {'x':x}
 #p['x'] = (0,1e24)
 
-def testP():
-	return p('x')
-def testP2():
-	return p('x',x=1)
-def testD():
+def timer(name,baseline,*tests):
+	print " - Speed tests for %s" % name
+	time_base = timeit.timeit("%s()"%baseline.__name__,setup="from __main__ import %s"%baseline.__name__,number=100000)
+	for test in tests:
+		time = timeit.timeit("%s()"%test.__name__,setup="from __main__ import %s"%test.__name__,number=100000)
+		print "\t%s: \t%.2fx slower than baseline" % (test.__name__,time/time_base)
+
+def test_baseline():
 	return q['x']
-def testR():
-	return x
 
-def timer():
-	time1 = timeit.timeit("testP()", setup="from __main__ import testP",number=100000)
-	time2 = timeit.timeit("testD()", setup="from __main__ import testD",number=100000)
-	time3 = timeit.timeit("testR()", setup="from __main__ import testR",number=100000)
-	time4 = timeit.timeit("testP2()", setup="from __main__ import testP2",number=100000)
-	print "p('x'):"
-	print time1/time2, "times slower than dict at %f cf %f" % (time1,time2)
-	print time1/time3, "times slower than raw at %f cf %f" % (time1,time3)
-	print "p('x',x=1):"
-	print time4/time2, "times slower than dict at %f cf %f" % (time1,time2)
-	print time4/time3, "times slower than raw at %f cf %f" % (time1,time3)
-timer()
+def test_extract():
+	return p('x')
 
-profile.run('testP()',filename='pam_extract.pstats')
+def test_attr():
+	return p.x
 
-print
-print " - Functional Evalution (y=x^2)"
-p(y=lambda x: x**2)
-o = p.optimise('x^2')
-def testP():
-	return p(o)
-def testP2():
-	return p('y')
-def testD():
-	return q['x']**2
-def testR():
+def test_override():
+	return p('x',x=1)
+
+def test_overrides():
+	return p('x',x=1,y=2,z=3,a=1,b=2,c=3,d=2)
+
+timer("Parameter Extraction", test_baseline, test_extract, test_attr, test_override, test_overrides)
+
+def square(x):
 	return x**2
+p.y = lambda x: x**2
+o = p.optimise('x^2')
+def test_baseline2():
+	return square(q['x'])
+def test_arg_fn():
+	return p(o)
+def test_param_fn():
+	return p('y')
+def test_param_fn_override():
+	return p('y',x=10)
 
-def timer():
-	time1 = timeit.timeit("testP()", setup="from __main__ import testP",number=10000)
-	time2 = timeit.timeit("testP2()", setup="from __main__ import testP2",number=10000)
-	time3 = timeit.timeit("testD()", setup="from __main__ import testD",number=10000)
-	time4 = timeit.timeit("testR()", setup="from __main__ import testR",number=10000)
-	print "p('x^2'): %f (%f) times slower than dict (raw) at %f cf %f (%f)" % (time1/time3,time1/time4,time1,time3,time4)
-	print "p('y'): %f (%f) times slower than dict (raw) at %f cf %f (%f)" % (time2/time3,time2/time4,time2,time3,time4)
-
-timer()
-
-profile.run('testP2()',filename='pam_functional.pstats')
+timer("Functional Parameters", test_baseline2, test_arg_fn, test_param_fn)
 
 
 print "\n\n"
