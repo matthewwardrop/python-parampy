@@ -438,7 +438,7 @@ class Parameters(object):
 
 	############# PARAMETER RETRIEVAL ##########################################
 
-	def __get(self,*args,**kwargs):
+	def __get(self,args,kwargs={}):
 		'''
 		Retrieve the parameters specified in args, with temporary values overriding
 		defaults as in kwargs. Parameters are returned as Quantity's.
@@ -446,13 +446,13 @@ class Parameters(object):
 		self.__process_override(kwargs)
 
 		if len(args) == 1:
-			result = self.__get_param(args[0],**kwargs)
+			result = self.__get_param(args[0],kwargs)
 			if self.__parameters_bounds is not None:
 				kwargs[args[0]] = result
 				self.__forward_check_bounds(args,kwargs)
 			return result
 
-		results = self.__get_params(*args,**kwargs)
+		results = self.__get_params(args,kwargs)
 		kwargs.update(results)
 		if self.__parameters_bounds is not None:
 			kwargs.update(results)
@@ -476,28 +476,30 @@ class Parameters(object):
 								check = False
 								break
 						if check:
-							self.__get(pam,**kwargs)
+							self.__get_param(pam,kwargs)
 						else:
 							warnings.warn(errors.ParameterBoundsUncheckedWarning("Parameter '%s' might be outside bounds. Insufficient parameters passed to check." % pam) )
 
-	def __get_params(self,*args,**kwargs):
+	def __get_params(self,args,kwargs={}):
 		rv = {}
 		for arg in args:
-			rv[self.__get_pam_name(arg)] = self.__get_param(arg,**kwargs)
+			rv[self.__get_pam_name(arg)] = self.__get_param(arg,kwargs)
 		return rv
 
 
-	def __get_param(self,arg,**kwargs):
+	def __get_param(self,arg,kwargs={}):
 		'''
 		Returns the value of a param `arg` with its dependent variables overriden
 		as in `kwargs`. If `arg` is instead a function, a string, or a Quantity, action is taken to
 		evaluate it where possible.
 		'''
+		if arg == '_':
+			raise ValueError()
 		pam_name = self.__get_pam_name(arg)
 
 		# If the parameter is actually a function or otherwise not directly in the dictionary of stored parameters
 		if not isinstance(arg,str) or (pam_name not in kwargs and pam_name not in self.__parameters):
-			return self.__eval(arg,**kwargs)
+			return self.__eval(arg,kwargs)
 		else:
 			scaled = self.__default_scaled
 			if arg[:1] == "_": #.startswith("_"):
@@ -510,7 +512,7 @@ class Parameters(object):
 
 			# If the parameter is a function, evaluate it with local parameter values (except where overridden in kwargs)
 			elif isinstance(self.__parameters[arg],types.FunctionType):
-				return self.__get_quantity(self.__eval_function(arg,**kwargs)[arg],param=arg,scaled=scaled)
+				return self.__get_quantity(self.__eval_function(arg,kwargs)[arg],param=arg,scaled=scaled)
 
 			# Otherwise, return the value currently stored in the parameters
 			else:
@@ -590,7 +592,7 @@ class Parameters(object):
 				val = kwargs[pam]
 				new = kwargs.copy()
 				del new[pam]
-				kwargs[pam] = self.__get_param(val,**new)
+				kwargs[pam] = self.__get_param(val,new)
 
 		# Now, ratify these changes through the parameter sets to ensure
 		# that the effects of these overrides is properly implemented
@@ -598,7 +600,7 @@ class Parameters(object):
 		for pam in restrict:
 			if type(self.__parameters.get(pam)) is types.FunctionType:
 				try:
-					vals = self.__eval_function(pam,**kwargs)
+					vals = self.__eval_function(pam,kwargs)
 					for key in vals:
 						if key in kwargs and vals[key] != kwargs[key] or key in new and vals[key] != new[key]:
 							raise errors.ParameterOverSpecifiedError("Parameter %s is overspecified, with contradictory values." % key)
@@ -612,7 +614,7 @@ class Parameters(object):
 			kwargs.update(new)
 			self.__process_override(kwargs,restrict=new.keys())
 
-	def __eval_function(self,param,**kwargs):
+	def __eval_function(self,param,kwargs={}):
 		'''
 		Returns a dictionary of parameter values. If the param variable itself is provided,
 		then the function has its inverse operator evaluated. Functions must be of the form:
@@ -634,7 +636,7 @@ class Parameters(object):
 			if arg in (param,"_%s"%param) and param not in kwargs:
 				continue
 
-			arguments.append(self.__get_param(arg,**kwargs))
+			arguments.append(self.__get_param(arg,kwargs))
 
 		cached = self.__cache_func_handler(param, params=arguments)
 		if cached is not None:
@@ -711,7 +713,7 @@ class Parameters(object):
 					if len(value) != 2:
 						raise errors.QuantityCoercionError("Tuple specifications of quantities must be of form (<value>,<unit>). Was provided with %s ."%str(value))
 					else:
-						q = Quantity(*value,dispenser=self.__units)
+						q = Quantity(value[0],value[1],dispenser=self.__units)
 						q = q.value/self.__unit_scaling(q.units)
 
 				elif isinstance(value, Quantity):
@@ -727,7 +729,7 @@ class Parameters(object):
 					if len(value) != 2:
 						raise errors.QuantityCoercionError("Tuple specifications of quantities must be of form (<value>,<unit>). Was provided with %s ."%str(value))
 					else:
-						q = Quantity(*value,dispenser=self.__units)
+						q = Quantity(value[0],value[1],dispenser=self.__units)
 
 				elif isinstance(value, Quantity):
 					q = value
@@ -751,20 +753,19 @@ class Parameters(object):
 
 		return q
 
-	def __eval(self,*arg,**kwargs):
+	def __eval(self,arg,kwargs={}):
 
-		arg = arg[0]
 		t = type(arg)
 
 		if t == tuple:
-			return self.__get_quantity((self.__eval(arg[0],**kwargs),arg[1]),scaled=self.__default_scaled)
+			return self.__get_quantity((self.__eval(arg[0],kwargs),arg[1]),scaled=self.__default_scaled)
 
 		elif isinstance(arg,Quantity):
 			return self.__get_quantity(arg,scaled=self.__default_scaled)
 
 		elif t == types.FunctionType:
 			deps = inspect.getargspec(arg)[0]
-			params = self.__get_params(*deps,**kwargs)
+			params = self.__get_params(deps,kwargs)
 			args = [val for val in [params[self.__get_pam_name(x)] for x in deps] ] # Done separately to avoid memory leak when cythoned.
 			return arg(*args)
 
@@ -772,7 +773,7 @@ class Parameters(object):
 			try:
 				if isinstance(arg,str):
 					if arg in self.__parameters:
-						return self.__get_param(arg,**kwargs)
+						return self.__get_param(arg,kwargs)
 
 					arg = sympy.S(arg,sympy.abc._clash)
 					fs = list(arg.free_symbols)
@@ -780,10 +781,10 @@ class Parameters(object):
 						raise errors.ParameterInvalidError("There is no parameter, and no interpretation, of '%s' which is recognised by Parameters." % arg)
 				params = {}
 				for sym in arg.free_symbols:
-					param = self.__get_param(str(sym),**kwargs)
+					param = self.__get_param(str(sym),kwargs)
 					if isinstance(param,Quantity):
 						raise errors.SymbolicEvaluationError("Symbolic expressions can only be evaluated when using scaled parameters. Attempted to use '%s' in '%s', which would yield a united quantity." % (sym,arg))
-					params[str(sym)] = self.__get_param(str(sym),**kwargs)
+					params[str(sym)] = self.__get_param(str(sym),kwargs)
 				result = arg.subs(params).evalf()
 				if result.as_real_imag()[1] != 0:
 					return complex(result)
@@ -810,7 +811,7 @@ class Parameters(object):
 		if len(bad) > 0:
 			raise errors.ParameterInvalidError("Attempt to set invalid parameters: %s . Parameters must be valid python identifiers matching ^[%sA-Za-z][_a-zA-Z0-9]*$." % (','.join(bad),'_' if allow_leading_underscore else '') )
 
-	def __set(self,**kwargs):
+	def __set(self,kwargs):
 
 		self.__cache_deps = {}
 		self.__cache_sups = {}
@@ -824,18 +825,18 @@ class Parameters(object):
 				del self.__cache_scaled[param]
 			if isinstance(val,(types.FunctionType,str)):
 				self.__parameters[param] = self.__check_function(param,self.__get_function(val))
-				self.__spec(**{param:self.__get_unit('')})
+				self.__spec({param:self.__get_unit('')})
 			elif isinstance(val,(list,tuple)) and isinstance(val[0],(types.FunctionType,str)):
 				self.__parameters[param] = self.__check_function(param,self.__get_function(val[0]))
-				self.__spec(**{param:self.__get_unit(val[1])})
+				self.__spec({param:self.__get_unit(val[1])})
 			else:
 				self.__parameters[param] = self.__get_quantity(val,param=param)
 				if isinstance(self.__parameters[param],Quantity):
-					self.__spec(**{param:self.__parameters[param].units})
+					self.__spec({param:self.__parameters[param].units})
 			if param in dir(type(self)):
 				warnings.warn(errors.ParameterNameWarning("Parameter '%s' will not be accessible using the attribute notation `p.%s`, as it conflicts with a method name of Parameters."%(param,param)))
 
-	def __update(self,**kwargs):
+	def __update(self,kwargs):
 
 		self.__check_valid_params(kwargs)
 
@@ -843,17 +844,17 @@ class Parameters(object):
 
 		for param,value in kwargs.items():
 			if param not in self.__parameters or not isinstance(self.__parameters.get(param),types.FunctionType):
-				self.__set(**{param:kwargs[param]})
+				self.__set({param:kwargs[param]})
 
 	def __and__(self,other):
 		if not isinstance(other,dict):
 			raise errors.ParametersException("The binary and operator is used to set the unit specification for parameters; and requires a dictionary of units.")
 		for param,units in other.items():
 			if isinstance(self.__parameters.get(param),Quantity):
-				self.__parameters[self.__get_pam_name(param)] = self.__get(self.__get_pam_united_name(param))(units)
-		self.__spec(**other)
+				self.__parameters[self.__get_pam_name(param)] = self.__get_param(self.__get_pam_united_name(param))(units)
+		self.__spec(other)
 
-	def __spec(self, **kwargs):
+	def __spec(self, kwargs):
 		''' Set units for parameters. '''
 		for arg in kwargs:
 			self.__parameters_spec[arg] = self.__get_unit(kwargs[arg])
@@ -876,7 +877,7 @@ class Parameters(object):
 		if not isinstance(other,dict):
 			raise errors.ParametersException("The left shift operator sets parameter values without interpretation; such as functions. It accepts a dictionary of parameter values.")
 
-		self.__set(**other)
+		self.__set(other)
 		return self
 
 	def __sympy_to_function(self,expr):
@@ -948,15 +949,15 @@ class Parameters(object):
 	def __call__(self,*args,**kwargs):
 
 		if args:
-			return self.__get(*args,**kwargs)
+			return self.__get(args,kwargs)
 
-		self.__update(**kwargs)
+		self.__update(kwargs)
 		return self
 
 	def __setattr__(self,attr,value):
 		if attr.startswith('__') or attr.startswith('_Parameters'):
 			return super(Parameters,self).__setattr__(attr,value)
-		return self.__set(**{attr:value})
+		return self.__set({attr:value})
 
 	def __table(self,table):
 
@@ -993,8 +994,8 @@ class Parameters(object):
 				v = 'Unknown'
 				vs = 'Unknown'
 				try:
-					v = str(self.__get(key))
-					vs = str(self.__get(key_scaled))
+					v = str(self.__get_param(key))
+					vs = str(self.__get_param(key_scaled))
 				except:
 					pass
 				parameters.append( [
@@ -1003,7 +1004,7 @@ class Parameters(object):
 					vs  ] )
 
 			else:
-				parameters.append( [param, str(self.__get(key)),str(self.__get(key_scaled))] )
+				parameters.append( [param, str(self.__get_param(key)),str(self.__get_param(key_scaled))] )
 
 		for param in sorted(self.__parameters_spec.keys()):
 			if param not in self.__parameters:
@@ -1022,7 +1023,7 @@ class Parameters(object):
 	def __getattr__(self,name):
 		if name[:2] == "__" or name[:11] == "_Parameters":
 			raise AttributeError
-		return self.__get(name)
+		return self.__get_param(name)
 
 	################## PARAMETER BOUNDS ####################################
 
@@ -1122,7 +1123,7 @@ class Parameters(object):
 					raise ValueError("Not all parameters have the same range")
 
 		if count is None:
-			return self.__get(*args,**ranges)
+			return self.__get(args,ranges)
 
 		for i in range(count):
 			d = {}
@@ -1130,7 +1131,7 @@ class Parameters(object):
 			for key in lists:
 				d[key] = lists[key][i]
 
-			argvs = self.__get(*args,**d)
+			argvs = self.__get(args,d)
 
 			if len(args) == 1:
 				if values is None:
@@ -1186,7 +1187,7 @@ class Parameters(object):
 					pars = {param:arg}
 					if type(params) is dict:
 						pars.update(params)
-					args[i] = self.__get(self.__get_pam_scaled_name(param),**pars)
+					args[i] = self.__get([self.__get_pam_scaled_name(param)],pars)
 
 			# Note: param keyword cannot appear in params without keyword repetition in self.range.
 			return sampler(*args)
