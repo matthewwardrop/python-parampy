@@ -622,13 +622,14 @@ class Parameters(object):
 		'''
 
 		f = self.__parameters.get(param)
+		deps = self.__get_pam_deps(param)
 
 		# Check if we are allowed to continue
-		if param in kwargs and param not in inspect.getargspec(f)[0] and "_"+param not in inspect.getargspec(f)[0]:
+		if param in kwargs and param not in deps and "_"+param not in deps:
 			raise errors.ParameterNotInvertableError( "Configuration requiring the inverting of a non-invertable map for %s."%param )
 
 		arguments = []
-		for arg in inspect.getargspec(f)[0]:
+		for arg in deps:
 
 			if arg in (param,"_%s"%param) and param not in kwargs:
 				continue
@@ -652,7 +653,7 @@ class Parameters(object):
 		# Deal with the inverse operation case
 		inverse = {}
 
-		for i,arg in enumerate(inspect.getargspec(f)[0]):
+		for i,arg in enumerate(deps):
 			if arg[:1] == '_': #.startswith('_'):
 				pam = arg[1:]
 			else:
@@ -762,8 +763,9 @@ class Parameters(object):
 			return self.__get_quantity(arg,scaled=self.__default_scaled)
 
 		elif t == types.FunctionType:
-			params = self.__get_params(*inspect.getargspec(arg)[0],**kwargs)
-			args = [val for val in [params[self.__get_pam_name(x)] for x in inspect.getargspec(arg)[0]] ] # Done separately to avoid memory leak when cythoned.
+			deps = inspect.getargspec(arg)[0]
+			params = self.__get_params(*deps,**kwargs)
+			args = [val for val in [params[self.__get_pam_name(x)] for x in deps] ] # Done separately to avoid memory leak when cythoned.
 			return arg(*args)
 
 		elif isinstance(arg,str) or arg.__class__.__module__.startswith('sympy'):
@@ -896,6 +898,7 @@ class Parameters(object):
 		return self.__sympy_to_function(expr)
 
 	def __check_function(self,param,f,forbidden=None):
+
 		args = inspect.getargspec(f).args
 
 		while param in args:
@@ -995,7 +998,7 @@ class Parameters(object):
 				except:
 					pass
 				parameters.append( [
-					'%s(%s)' % ( param, ','.join(inspect.getargspec(self.__parameters[param])[0] ) ),
+					'%s(%s)' % ( param, ','.join(self.__get_pam_deps(param)) ),
 					v,
 					vs  ] )
 
