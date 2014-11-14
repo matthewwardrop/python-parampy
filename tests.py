@@ -55,6 +55,14 @@ def test_param_fn_override():
 
 timer("Functional Parameters", test_baseline2, test_arg_fn, test_param_fn)
 
+p['x'] = (0,10)
+def test_bounds_fn():
+	return p(x=5)
+def test_bounds():
+	return p('y',x=5)
+
+timer("Bounds", test_baseline2, test_bounds_fn, test_bounds)
+
 
 print "\n\n"
 print "Unit Tests"
