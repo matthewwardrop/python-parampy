@@ -355,15 +355,16 @@ class Parameters(object):
 
 
 	################## ENABLE USE WITH 'with' ####################################
+	
 	def __enter__(self):
 		self.__context_save = {
-			'parameters_spec': copy.deepcopy(self.__parameters_spec),
-			'parameters': copy.deepcopy(self.__parameters),
-			'parameters_bounds': copy.deepcopy(self.__parameters_bounds),
-			'scalings': copy.deepcopy(self.__scalings),
-			'units': copy.deepcopy(self.__units),
-			'units_custom': copy.deepcopy(self.__units_custom),
-			'default_scaled': copy.deepcopy(self.__default_scaled),
+			'parameters_spec': copy.copy(self.__parameters_spec),
+			'parameters': copy.copy(self.__parameters),
+			'parameters_bounds': copy.copy(self.__parameters_bounds),
+			'scalings': copy.copy(self.__scalings),
+			'units': copy.copy(self.__units),
+			'units_custom': copy.copy(self.__units_custom),
+			'default_scaled': copy.copy(self.__default_scaled),
 		}
 
 	def __exit__(self, type, value, traceback):
