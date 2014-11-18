@@ -295,8 +295,11 @@ class Units(object):
 			return units
 
 		elif isinstance(units,str):
-
 			d = {}
+
+			if units == "units":
+				return d
+
 			for match in re.finditer("([*/])?([^*/\^0-9]+)(?:\^(\-?[0-9\.]+))?",units.replace(" ","")):
 				groups = match.groups()
 				mult = -1 if groups[0] == "/" else 1

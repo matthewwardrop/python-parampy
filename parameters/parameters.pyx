@@ -355,7 +355,7 @@ class Parameters(object):
 
 
 	################## ENABLE USE WITH 'with' ####################################
-	
+
 	def __enter__(self):
 		self.__context_save = {
 			'parameters_spec': copy.copy(self.__parameters_spec),
@@ -1363,7 +1363,9 @@ class Parameters(object):
 
 		p << getattr(profile,"parameters",{})
 
-		p & getattr(profile,"parameter_units",{})
+		p.cache(**getattr(profile,"parameters_cache",{}))
+
+		p & getattr(profile,"parameters_units",{})
 
 		return p
 
@@ -1394,6 +1396,19 @@ class Parameters(object):
 		f.write( "parameters = {\n" )
 		for pam,value in self.__parameters.items():
 			f.write("\t\"%s\": (%s,\"%s\"),\n"%(pam,value.value,value.units))
+		f.write( "}\n\n" )
+
+		# Export parameters_cache
+		f.write( "parameters_cache = {\n" )
+		for pam in self.__cache_funcs:
+			f.write("\t\"%s\": True,\n"%(pam))
+		f.write( "}\n\n" )
+
+		# Export parameters_units
+		f.write( "parameters_units = {\n" )
+		for pam,units in self.__parameters_spec.items():
+			if pam not in self.__parameters:
+				f.write("\t\"%s\": \"%s\",\n"%(pam,units))
 		f.write( "}\n\n" )
 
 		f.close()

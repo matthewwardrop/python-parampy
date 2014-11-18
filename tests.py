@@ -7,66 +7,6 @@ warnings.filterwarnings("ignore")
 
 from parameters import Parameters,SIDispenser,Quantity,SIQuantity,Unit, UnitDispenser, Units, errors
 
-print "Performance Tests"
-print "-----------------"
-print
-x = 1e23
-p=Parameters()
-p(x=x,y=2,z=3,a=1,b=2,c=3,d=2)
-q = {'x':x}
-#p['x'] = (0,1e24)
-
-def timer(name,baseline,*tests):
-	print " - Speed tests for %s" % name
-	time_base = timeit.timeit("%s()"%baseline.__name__,setup="from __main__ import %s"%baseline.__name__,number=100000)
-	for test in tests:
-		time = timeit.timeit("%s()"%test.__name__,setup="from __main__ import %s"%test.__name__,number=100000)
-		print "\t%s: \t%.2fx slower than baseline" % (test.__name__,time/time_base)
-
-def test_baseline():
-	return q['x']
-
-def test_extract():
-	return p('x')
-
-def test_attr():
-	return p.x
-
-def test_override():
-	return p('x',x=1)
-
-def test_overrides():
-	return p('x',x=1,y=2,z=3,a=1,b=2,c=3,d=2)
-
-timer("Parameter Extraction", test_baseline, test_extract, test_attr, test_override, test_overrides)
-
-def square(x):
-	return x**2
-p.y = lambda x: x**2
-o = p.optimise('x^2')
-def test_baseline2():
-	return square(q['x'])
-def test_arg_fn():
-	return p(o)
-def test_param_fn():
-	return p('y')
-def test_param_fn_override():
-	return p('y',x=10)
-
-timer("Functional Parameters", test_baseline2, test_arg_fn, test_param_fn)
-
-p['x'] = (0,10)
-def test_bounds_fn():
-	return p(x=5)
-def test_bounds():
-	return p('y',x=5)
-
-timer("Bounds", test_baseline2, test_bounds_fn, test_bounds)
-
-
-print "\n\n"
-print "Unit Tests"
-print "-----------------"
 ###################### UNIT TESTS ##############################################
 import unittest
 
@@ -316,11 +256,80 @@ class TestParameters(unittest.TestCase):
 		self.assertEqual(self.p.range('_x',x=['_k','2*_k','_k/2'],k=(1,3,3)),[1,4,1.5])
 
 	def test_lambda_init(self):
-
 		self.p.z = 2
 		self.assertEqual( self.p('_x',x=(lambda _k:_k**2, '$'),k=2), 4)
 		self.assertEqual( self.p('_x',x=(lambda _k:_k**2, '$'),k=lambda z:z), 4)
 
+	def test_loadsave(self):
+		self.p.z = (2,'J')
+		self.p & {'t':'ns'}
+		self.p >> "test.params"
+
+		p = Parameters.load('test.params')
+		self.assertEqual(p.z, 2)
+		self.assertEqual(str(p.units('t')),'ns')
+
 
 if __name__ == '__main__':
-	unittest.main()
+
+	print "\n\n"
+	print "Unit Tests"
+	print "-----------------"
+	unittest.main(exit=False)
+
+
+	print "Performance Tests"
+	print "-----------------"
+	print
+	x = 1e23
+	p=Parameters()
+	p(x=x,y=2,z=3,a=1,b=2,c=3,d=2)
+	q = {'x':x}
+	#p['x'] = (0,1e24)
+
+	def timer(name,baseline,*tests):
+		print " - Speed tests for %s" % name
+		time_base = timeit.timeit("%s()"%baseline.__name__,setup="from __main__ import %s"%baseline.__name__,number=100000)
+		for test in tests:
+			time = timeit.timeit("%s()"%test.__name__,setup="from __main__ import %s"%test.__name__,number=100000)
+			print "\t%s: \t%.2fx slower than baseline" % (test.__name__,time/time_base)
+
+	def test_baseline():
+		return q['x']
+
+	def test_extract():
+		return p('x')
+
+	def test_attr():
+		return p.x
+
+	def test_override():
+		return p('x',x=1)
+
+	def test_overrides():
+		return p('x',x=1,y=2,z=3,a=1,b=2,c=3,d=2)
+
+	timer("Parameter Extraction", test_baseline, test_extract, test_attr, test_override, test_overrides)
+
+	def square(x):
+		return x**2
+	p.y = lambda x: x**2
+	o = p.optimise('x^2')
+	def test_baseline2():
+		return square(q['x'])
+	def test_arg_fn():
+		return p(o)
+	def test_param_fn():
+		return p('y')
+	def test_param_fn_override():
+		return p('y',x=10)
+
+	timer("Functional Parameters", test_baseline2, test_arg_fn, test_param_fn)
+
+	p['x'] = (0,10)
+	def test_bounds_fn():
+		return p(x=5)
+	def test_bounds():
+		return p('y',x=5)
+
+	timer("Bounds", test_baseline2, test_bounds_fn, test_bounds)
