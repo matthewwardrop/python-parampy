@@ -6,6 +6,7 @@ import sympy, sympy.abc
 from .definitions import SIDispenser
 from .quantities import Quantity,SIQuantity
 from .units import Units,Unit
+from .iteration import RangesIterator
 from . import physical_constants
 from .text import colour_text
 from . import errors
@@ -1193,6 +1194,10 @@ class Parameters(object):
 			# Note: param keyword cannot appear in params without keyword repetition in self.range.
 			return sampler(*args)
 		return pam_range
+
+	################## Function iteration ##################################
+	def ranges_iterator(self,ranges):
+		return RangesIterator(ranges=ranges,parameters=self)
 
 	################## CONVERT UTILITY #####################################
 	def asvalue(self,**kwargs):
