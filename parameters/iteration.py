@@ -115,10 +115,15 @@ class RangesIterator(object):
 		self.ranges = ranges
 		self.p = parameters
 
-	def ranges_expand(self,level=0,iteration=tuple(),masks=None,indicies=[],params={},ranges_eval=None):
+	def ranges_expand(self,level=0,iteration=tuple(),masks=None,indicies=None,params=None,ranges_eval=None):
 		'''
 		This method generates a list of different parameter configurations
 		'''
+		
+		if indicies is None:
+			indicies = []
+		if params is None:
+			params = {}
 
 		pam_ranges = self.ranges[level]
 
@@ -153,11 +158,14 @@ class RangesIterator(object):
 				ranges_eval[param][s] = pam_value[i]
 				if np.isnan(pam_value[i]):
 					raise ValueError ("Bad number for parameter %s @ indicies %s"% (param,str(current_iteration)))
+			
+				params[param] = pam_value[i]
 
 			if level < len(self.ranges) - 1:
 				# Recurse problem
 				ranges_eval,_ = self.ranges_expand(level=level+1,iteration=current_iteration,indicies=indicies,params=params,ranges_eval=ranges_eval)
 			else:
+				print "HERE", level
 				if masks is not None and isinstance(masks,list):
 					skip = False
 					for mask in masks:
