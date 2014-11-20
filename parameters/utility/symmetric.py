@@ -153,8 +153,6 @@ class AsyncParallelMap(object):
 
 		for i, (x_indicies, x_args, x_kwargs) in enumerate(X):
 
-			print (x_indicies, x_args, x_kwargs)
-
 			if self.spawnonce and self.count + self.nprocs <= i:  # Wait for processes to finish before starting new ones
 				yield self.q_out.get()
 				self.count += 1
