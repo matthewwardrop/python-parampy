@@ -1384,13 +1384,19 @@ class Parameters(object):
 			plt.plot(
 					self.asvalue(**{indep:r[indep]}), 
 					self.asvalue(**{param:r[param]}), 
-					label="$%s\,(%s)$"% (param, param_units if param_units is not None else "units")
+					label="$%s\,(%s)$"% (self.__plot_subscripts(param), self.__plot_subscripts(str(param_units)) if param_units is not None else "units")
 					)
 			
-		plt.xlabel("$%s\,(%s)$" % (indep, indep_units if indep_units is not None else 'units'))
+		plt.xlabel("$%s\,(%s)$" % (self.__plot_subscripts(indep), self.__plot_subscripts(str(indep_units)) if indep_units is not None else 'units'))
 		plt.legend(loc=0)
 			
 		plt.show()
+	
+	def __plot_subscripts(self,text):
+		text = text.replace('{mu}','{\mu}')
+		s = text.split('_')
+		return '_{'.join(s)+'}'*(len(s)-1)
+		
 	
 	
 	################## LOAD / SAVE PROFILES ################################
