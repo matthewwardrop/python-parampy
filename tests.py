@@ -314,6 +314,7 @@ if __name__ == '__main__':
 	def square(x):
 		return x**2
 	p.y = lambda x: x**2
+	p.y2 = 'x^2'
 	o = p.optimise('x^2')
 	def test_baseline2():
 		return square(q['x'])
@@ -321,10 +322,12 @@ if __name__ == '__main__':
 		return p(o)
 	def test_param_fn():
 		return p('y')
+	def test_param_fn_sympy():
+		return p('y2')
 	def test_param_fn_override():
 		return p('y',x=10)
 
-	timer("Functional Parameters", test_baseline2, test_arg_fn, test_param_fn)
+	timer("Functional Parameters", test_baseline2, test_arg_fn, test_param_fn, test_param_fn_sympy, test_param_fn_override)
 
 	p['x'] = (0,10)
 	def test_bounds_fn():

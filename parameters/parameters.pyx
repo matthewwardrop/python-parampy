@@ -1352,7 +1352,47 @@ class Parameters(object):
 			return True
 		else:
 			raise ValueError("Unable to check whether parameter '%s' of type '%s' is constant." % (param_val,type(param_val)))
-
+	
+	
+	################## PLOTTING INTROSPECTION ##############################
+	
+	def plot(self,*params,**ranges):
+		try:
+			import matplotlib.pyplot as plt
+		except:
+			print colour_text("Matplotlib is required for plotting features.", "RED", True)
+		
+		if len(params) == 0:
+			raise ValueError("You must specify a parameter to plot. i.e. plot('x',t=(0,10,10))")
+		
+		indep_count = 0
+		for param,range in ranges.items():
+				if type(range) == list or type(range) == tuple and len(range) > 2:
+					indep_count += 1
+					if indep_count > 1:
+						raise ValueError("Plotting currently only supports one independent parameter.")
+					indep = self.__get_pam_scaled_name(param)
+					indep_units = self.units(indep)
+		if indep_count == 0:
+			raise ValueError("You must provide at least one range to act as independent parameter.")
+		
+		r = self.range(indep,*map(self.__get_pam_scaled_name,params),**ranges)
+		
+		plt.figure()
+		for param in params:
+			param_units = self.units(param)
+			plt.plot(
+					self.asvalue(**{indep:r[indep]}), 
+					self.asvalue(**{param:r[param]}), 
+					label="$%s\,(%s)$"% (param, param_units if param_units is not None else "units")
+					)
+			
+		plt.xlabel("$%s\,(%s)$" % (indep, indep_units if indep_units is not None else 'units'))
+		plt.legend(loc=0)
+			
+		plt.show()
+	
+	
 	################## LOAD / SAVE PROFILES ################################
 
 	@classmethod
