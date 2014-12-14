@@ -882,16 +882,12 @@ class Parameters(object):
 		self.__set(other)
 		return self
 
-	def __sympy_to_function(self,expr):
+	def __sympy_to_function(self, expr):
 		try:
-			expr = sympy.S(expr,sympy.abc._clash)
+			expr = sympy.S(expr, locals=sympy.abc._clash)
 			syms = list(expr.free_symbols)
-			f = sympy.utilities.lambdify(syms,expr)
-
-			o = {}
-			exec ('def g(%s):\n\treturn f(%s)'%( ','.join(map(str,syms)) , ','.join(map(str,syms)) ) , {'f':f},o)
-
-			return o['g']
+			f = sympy.utilities.lambdify(syms, expr, dummify=False)
+			return f
 		except:
 			raise errors.SymbolicEvaluationError( 'String \'%s\' is not a valid symbolic expression.' % (expr) )
 

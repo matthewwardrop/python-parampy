@@ -46,7 +46,7 @@ setup(name='python-parameters',
       packages=['parameters','parameters.utility'],
       cmdclass = cmdclass,
       ext_modules = ext_modules,
-      requires=['numpy','sympy(>0.7.2)','scipy'],
+      requires=['numpy','sympy(>0.7.5)','scipy'],
       license='''The MIT License (MIT)
 
 Copyright (c) 2013 Matthew Wardrop
