@@ -4,6 +4,7 @@ import re
 from . import errors
 from .text import colour_text
 
+
 class Unit(object):
 	'''
 	Unit (names,abbr=None,rel=1.0,prefixable=True,plural=None,dimensions={})
@@ -43,8 +44,8 @@ class Unit(object):
 
 	'''
 
-	def __init__(self,names,abbr=None,rel=1.0,prefixable=True,plural=None,dimensions={}):
-		self.names = names if isinstance(names,(tuple,list)) else [names]
+	def __init__(self, names, abbr=None, rel=1.0, prefixable=True, plural=None, dimensions={}):
+		self.names = names if isinstance(names, (tuple, list)) else [names]
 		self.abbr = abbr
 		self.plural = plural
 
@@ -53,12 +54,13 @@ class Unit(object):
 
 		self.dimensions = dimensions
 
-	def set_dimensions(self,**dimensions):
+	def set_dimensions(self, **dimensions):
 		self.dimensions = dimensions
 		return self
 
 	def __repr__(self):
 		return self.names[0]
+
 
 class UnitDispenser(object):
 	'''
@@ -144,9 +146,9 @@ class UnitDispenser(object):
 		'''
 		pass
 
-	def add(self,unit,check=True):
-		if not isinstance(unit,Unit):
-			raise errors.UnitInvalidError("A Unit object is required for addition to a UnitDispenser. Was provided with: '%s'."%unit)
+	def add(self, unit, check=True):
+		if not isinstance(unit, Unit):
+			raise errors.UnitInvalidError("A Unit object is required for addition to a UnitDispenser. Was provided with: '%s'." % unit)
 
 		for name in unit.names:
 			self._units[name] = unit
@@ -155,66 +157,65 @@ class UnitDispenser(object):
 
 		for dimension in unit.dimensions:
 			if dimension not in self._dimensions or self._dimensions[dimension] is None:
-				if unit.dimensions == {dimension:1}:
-					self.basis(**{dimension:unit})
+				if unit.dimensions == {dimension: 1}:
+					self.basis(**{dimension: unit})
 				else:
 					self._dimensions[dimension] = None
 		if check:
-			for dimension,basis_unit in self.basis().items():
+			for dimension, basis_unit in self.basis().items():
 				if basis_unit is None:
-					print colour_text("WARNING: No basis unit specified for: %s."%dimension)
+					print colour_text("WARNING: No basis unit specified for: %s." % dimension)
 
 		if unit.prefixable:
 			for prefix in self._prefixes:
 				self.add(
 					Unit(
-						names="%s%s" % (prefix[0],unit.names[0]),
-						abbr="%s%s" % (prefix[1],unit.abbr) if unit.abbr is not None else None,
-						plural="%s%s" % (prefix[0],unit.plural) if unit.plural is not None else None,
-						rel=unit.rel*prefix[2],
+						names="%s%s" % (prefix[0], unit.names[0]),
+						abbr="%s%s" % (prefix[1], unit.abbr) if unit.abbr is not None else None,
+						plural="%s%s" % (prefix[0], unit.plural) if unit.plural is not None else None,
+						rel=unit.rel * prefix[2],
 						prefixable=False
 					).set_dimensions(**unit.dimensions),
 					check=False)
 
-	def __add__(self,unit):
+	def __add__(self, unit):
 		self.add(unit)
 		return self
 
 	def list(self):
 		return self._units.keys()
 
-	def has(self,identifier):
-		return self._units.has_key(identifier)
+	def has(self, identifier):
+		return identifier in self._units
 
-	def get(self,unit):
-		if isinstance(unit,str):
+	def get(self, unit):
+		if isinstance(unit, str):
 			try:
 				return self._units[unit]
 			except:
 				raise errors.UnitInvalidError("Unknown unit: '%s'." % unit)
-		elif isinstance(unit,Unit):
+		elif isinstance(unit, Unit):
 			return unit
-		raise errors.UnitInvalidError("Could not find Unit object for '%s'."%unit)
+		raise errors.UnitInvalidError("Could not find Unit object for '%s'." % unit)
 
 	@property
 	def dimensions(self):
 		return self._dimensions.keys()
 
-	def basis(self,**kwargs):
+	def basis(self, **kwargs):
 		if not kwargs:
 			return self._dimensions
 
-		for key,val in kwargs.items():
+		for key, val in kwargs.items():
 			unit = self.get(val)
-			if unit.dimensions == {key:1}:
+			if unit.dimensions == {key: 1}:
 				self._dimensions[key] = unit
 			else:
-				print "Invalid unit (%s) for dimension (%s)" % (unit,key)
-
+				print "Invalid unit (%s) for dimension (%s)" % (unit, key)
 
 	############# UNITS GENERATION #########################################
 
-	def __call__(self,units):
+	def __call__(self, units):
 		'''
 		This is a shortcut for: Units(units,dispenser=self); which also allows
 		for caching.
@@ -222,9 +223,10 @@ class UnitDispenser(object):
 		if type(units) is str:
 			if units in self.__cache:
 				return self.__cache[units]
-			self.__cache[units] = Units(units,dispenser=self)
+			self.__cache[units] = Units(units, dispenser=self)
 			return self.__cache[units]
-		return Units(units,dispenser=self)
+		return Units(units, dispenser=self)
+
 
 class Units(object):
 	'''
@@ -272,41 +274,41 @@ class Units(object):
 	>>> units.units
 	'''
 
-	def __init__(self,units=None,dispenser=None):
+	def __init__(self, units=None, dispenser=None):
 		self.__hash = hash(str(units))
 		self.__dispenser = dispenser
 		self.__units = self.__process_units(units)
 
-	def __get_unit(self,unit):
+	def __get_unit(self, unit):
 		return self.__dispenser.get(unit)
 
-	def __process_units(self,units):
+	def __process_units(self, units):
 
 		if units is None:
 			return {}
 
-		elif isinstance(units,Units):
+		elif isinstance(units, Units):
 			return units.units.copy()
 
-		elif isinstance(units,Unit):
-			return {units:1}
+		elif isinstance(units, Unit):
+			return {units: 1}
 
-		elif isinstance(units,dict):
+		elif isinstance(units, dict):
 			return units
 
-		elif isinstance(units,str):
+		elif isinstance(units, str):
 			d = {}
 
 			if units == "units":
 				return d
 
-			for match in re.finditer("([*/])?([^*/\^0-9]+)(?:\^(\-?[0-9\.]+))?",units.replace(" ","")):
+			for match in re.finditer("([*/])?([^*/\^0-9]+)(?:\^(\-?[0-9\.]+))?", units.replace(" ", "")):
 				groups = match.groups()
 				mult = -1 if groups[0] == "/" else 1
 				power = mult * (Fraction(groups[2]) if groups[2] is not None else 1)
 
 				unit = self.__get_unit(groups[1])
-				d[unit] = d.get(unit,0) + power
+				d[unit] = d.get(unit, 0) + power
 
 			return d
 
@@ -321,61 +323,61 @@ class Units(object):
 		if self.dimensions == {}:
 			return "units"
 
-		for unit,power in items:
+		for unit, power in items:
 			if power > 0:
 				if power != 1:
-					output.append( "%s^%s" % (unit.abbr,power) )
+					output.append("%s^%s" % (unit.abbr, power))
 				else:
-					output.append( unit.abbr )
+					output.append(unit.abbr)
 		output = "*".join(output)
 
-		for unit,power in items:
+		for unit, power in items:
 			if power < 0:
 				if power != -1:
-					output += "/%s^%s" % (unit.abbr,abs(power))
+					output += "/%s^%s" % (unit.abbr, abs(power))
 				else:
 					output += "/%s" % unit.abbr
 
 		return output
 
-	def scale(self,scale):
+	def scale(self, scale):
 		'''
 		Returns a float comparing the current units to the provided units.
 		'''
 		try:
 			return self.__scale_cache[scale]
 		except:
-			if getattr(self,'__scale_cache',None) is None:
+			if getattr(self, '__scale_cache', None) is None:
 				self.__scale_cache = {}
 
-			if isinstance(scale,str):
+			if isinstance(scale, str):
 				scale = self.__dispenser(scale)
 
 			dims = self.dimensions
 			dims_other = scale.dimensions
 
 			# If the union of the sets of dimensions is less than the maximum size of the dimensions; then clearly the units are the same.
-			if len(set(dims.items()) & set(dims_other.items())) < max(len(dims),len(dims_other)):
+			if len(set(dims.items()) & set(dims_other.items())) < max(len(dims), len(dims_other)):
 				raise errors.UnitConversionError("Invalid conversion. Units '%s' and '%s' do not match. %s" % (self, scale, set(dims.items()) & set(dims_other.items())))
 			self.__scale_cache[scale] = self.rel / scale.rel
 			return self.__scale_cache[scale]
 
 	@property
 	def dimensions(self):
-		#if getattr(self,'__dimensions',None) is not None:
-		#	return self.__dimensions.copy()
+		# if getattr(self,'__dimensions',None) is not None:
+		# 	return self.__dimensions.copy()
 
 		dimensions = {}
-		for unit,power in self.__units.items():
-			for key,order in unit.dimensions.items():
-				dimensions[key] = dimensions.get(key,0) + power*order
-		for key,value in list(dimensions.items()):
+		for unit, power in self.__units.items():
+			for key, order in unit.dimensions.items():
+				dimensions[key] = dimensions.get(key, 0) + power * order
+		for key, value in list(dimensions.items()):
 			if value == 0:
 				del dimensions[key]
 
-		#self.__dimensions = dimensions
+		# self.__dimensions = dimensions
 
-		return dimensions#.copy()
+		return dimensions  # .copy()
 
 	@property
 	def rel(self):
@@ -384,8 +386,8 @@ class Units(object):
 		'''
 
 		rel = 1.
-		for unit,power in self.__units.items():
-			rel *= unit.rel**power
+		for unit, power in self.__units.items():
+			rel *= unit.rel ** power
 		return rel
 
 	@property
@@ -396,9 +398,9 @@ class Units(object):
 
 		for dimension in self.dimensions:
 			if dimensions[dimension] != 0:
-				dimensionString += "*%s^%f"%(dimensionMap[dimension].abbr if dimensionMap[dimension].abbr is not None else dimensionMap[dimension],float(dimensions[dimension]))
+				dimensionString += "*%s^%f" % (dimensionMap[dimension].abbr if dimensionMap[dimension].abbr is not None else dimensionMap[dimension], float(dimensions[dimension]))
 
-		return Unit(dimensionString[1:],dispenser=self.__dispenser)
+		return Unit(dimensionString[1:], dispenser=self.__dispenser)
 
 	@property
 	def units(self):
@@ -406,52 +408,52 @@ class Units(object):
 
 	########### UNIT OPERATIONS ############################################
 
-	def __new(self,units):
-		return Units(units,self.__dispenser)
+	def __new(self, units):
+		return Units(units, self.__dispenser)
 
 	def copy(self):
-		return Units(self.units,self.__dispenser)
+		return Units(self.units, self.__dispenser)
 
-	def __mul_units(self,target,additive):
-		for unit,power in additive.items():
-			target[unit] = target.get(unit,0) + power
+	def __mul_units(self, target, additive):
+		for unit, power in additive.items():
+			target[unit] = target.get(unit, 0) + power
 
-			if target.get(unit,0) == 0:
+			if target.get(unit, 0) == 0:
 				del target[unit]
 		return target
 
-	def __div_units(self,target,additive):
-		for unit,power in additive.items():
-			target[unit] = target.get(unit,0) - power
+	def __div_units(self, target, additive):
+		for unit, power in additive.items():
+			target[unit] = target.get(unit, 0) - power
 
-			if target.get(unit,0) == 0:
+			if target.get(unit, 0) == 0:
 				del target[unit]
 		return target
 
-	def __mul__(self,other):
-		return self.__new( self.__mul_units(self.units,other.units) )
+	def __mul__(self, other):
+		return self.__new(self.__mul_units(self.units, other.units))
 
-	def __div__(self,other):
-		return self.__new( self.__div_units(self.units,other.units) )
+	def __div__(self, other):
+		return self.__new(self.__div_units(self.units, other.units))
 
-	def __truediv__(self,other):
+	def __truediv__(self, other):
 		return self.__div__(other)
 
-	def __rdiv__(self,other):
+	def __rdiv__(self, other):
 		if other == 1:
 			return self.__pow__(-1)
 		raise ValueError("Units cannot have numerical size.")
 
-	def __rtruediv__(self,other):
+	def __rtruediv__(self, other):
 		return self.__rdiv__(other)
 
-	def __pow__(self,other):
+	def __pow__(self, other):
 		new_units = self.units
 		for unit in new_units:
 			new_units[unit] *= other
 		return self.__new(new_units)
 
-	def __eq__(self,other):
+	def __eq__(self, other):
 		if str(self) == str(other):
 			return True
 		return False
