@@ -646,7 +646,7 @@ class Parameters(object):
 			return {param: cached}
 		else:
 			r = f(*arguments)
-			if not isinstance(r, list):
+			if not isinstance(r, (list,tuple)):
 				r = [r]
 
 			# If we are not performing the inverse operation
@@ -657,15 +657,12 @@ class Parameters(object):
 
 		# Deal with the inverse operation case
 		inverse = {}
-
+		
 		for i, arg in enumerate(deps):
-			if arg[:1] == '_':  # .startswith('_'):
-				pam = arg[1:]
-			else:
-				pam = arg
+			pam = self.__get_pam_name(arg)
 
-			if pam != param and pam != "_%s" % param:
-				inverse[self.__get_pam_name(arg)] = self.__get_quantity(r[i], param=pam)
+			if pam not in (param, "_%s" % param):
+				inverse[pam] = self.__get_quantity(r[i], param=pam)
 
 		return inverse
 
