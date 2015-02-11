@@ -60,7 +60,6 @@ class RangesIterator(object):
 				ranges_eval,_ = self.ranges_expand(level=level+1,iteration=current_iteration,indicies=indicies,params=params,masks=masks,ranges_eval=ranges_eval)
 			else:
 				if masks is not None and isinstance(masks,list):
-					print [mask(current_iteration,ranges=self.ranges,params=params) for mask in masks]
 					if not any( [mask(current_iteration,ranges=self.ranges,params=params) for mask in masks] ):
 						continue
 
