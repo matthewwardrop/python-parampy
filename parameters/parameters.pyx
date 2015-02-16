@@ -606,7 +606,7 @@ class Parameters(object):
 					vals = self.__eval_function(pam, kwargs)
 					for key in vals:
 						if key in kwargs and vals[key] != kwargs[key] or key in new and vals[key] != new[key]:
-							raise errors.ParameterOverSpecifiedError("Parameter %s is overspecified, with contradictory values." % key)
+							raise errors.ParameterOverSpecifiedError("Parameter %s is overspecified, with contradictory values. (%s vs. %s)" % (key,vals[key],kwargs[key] if key in kwargs else new[key]) )
 					new.update(vals)
 				except errors.ParameterNotInvertableError as e:
 					if abort_noninvertable:
@@ -657,7 +657,7 @@ class Parameters(object):
 
 		# Deal with the inverse operation case
 		inverse = {}
-		
+
 		for i, arg in enumerate(deps):
 			pam = self.__get_pam_name(arg)
 

@@ -5,7 +5,7 @@ import numpy as np
 
 from .units import UnitDispenser, Units
 from .definitions import SIDispenser
-
+from .text import colour_text
 
 @total_ordering
 class Quantity(object):
@@ -172,15 +172,17 @@ class Quantity(object):
 	def __pow__(self, other):
 		return self.new(self.value ** other, self.units ** other)
 
-	def __eq__(self, other):
+	def __cmp__(self, other):
 		if type(other) is tuple and len(other) == 2:
 			other = self.new(*other)
 		if isinstance(other, Quantity):
 			scale = self.units.scale(other.units)
 			if self.__truncate(self.value) == self.__truncate(other.value / scale):
-				return True
-			return False
-		return False
+				return 0
+			elif self.__truncate(self.value) > self.__truncate(other.value / scale):
+				return 1
+			return -1
+		raise ValueError("Unknown comparison between Quantity and object of type %s." % (type(other)))
 
 	def __lt__(self, other):
 		scale = self.units.scale(other.units)

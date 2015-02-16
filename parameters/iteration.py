@@ -10,7 +10,10 @@ class RangesIterator(object):
 		self.ranges = ranges
 		self.p = parameters
 
-	def ranges_expand(self,level=0,iteration=tuple(),masks=None,indicies=None,params=None,ranges_eval=None):
+	def ranges_expand(self,masks=None,params=None,ranges_eval=None):
+		return self.__ranges_expand(masks=masks,params=params.copy(),ranges_eval=ranges_eval)
+
+	def __ranges_expand(self,level=0,iteration=tuple(),masks=None,indicies=None,params=None,ranges_eval=None):
 		'''
 		This method generates a list of different parameter configurations
 		'''
@@ -57,7 +60,7 @@ class RangesIterator(object):
 
 			if level < len(self.ranges) - 1:
 				# Recurse problem
-				ranges_eval,_ = self.ranges_expand(level=level+1,iteration=current_iteration,indicies=indicies,params=params,masks=masks,ranges_eval=ranges_eval)
+				ranges_eval,_ = self.__ranges_expand(level=level+1,iteration=current_iteration,indicies=indicies,params=params,masks=masks,ranges_eval=ranges_eval)
 			else:
 				if masks is not None and isinstance(masks,list):
 					if not any( [mask(current_iteration,ranges=self.ranges,params=params) for mask in masks] ):
