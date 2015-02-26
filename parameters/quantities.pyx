@@ -172,6 +172,16 @@ class Quantity(object):
 	def __pow__(self, other):
 		return self.new(self.value ** other, self.units ** other)
 
+	# Duplicate functionality (as in __cmp__) to allow for comparison with non Quantity objects
+	def __eq__(self,other):
+		if type(other) is tuple and len(other) == 2:
+			other = self.new(*other)
+		if isinstance(other, Quantity):
+			scale = self.units.scale(other.units)
+			if self.__truncate(self.value) == self.__truncate(other.value / scale):
+				return True
+		return False
+
 	def __cmp__(self, other):
 		if type(other) is tuple and len(other) == 2:
 			other = self.new(*other)
