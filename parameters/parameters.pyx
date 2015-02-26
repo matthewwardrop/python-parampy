@@ -450,12 +450,17 @@ class Parameters(object):
 		'''
 		self.__process_override(kwargs)
 
-		if len(args) == 1:
+		arg_islist = type(args[0]) == list
+
+		if len(args) == 1 and not arg_islist:
 			result = self.__get_param(args[0], kwargs)
 			if self.__parameters_bounds is not None:
 				kwargs[args[0]] = result
 				self.__forward_check_bounds(args, kwargs)
 			return result
+
+		if arg_islist:
+			args = args[0]
 
 		results = self.__get_params(args, kwargs)
 		kwargs.update(results)
@@ -1128,17 +1133,17 @@ class Parameters(object):
 
 			argvs = self.__get(args, d)
 
-			if len(args) == 1:
-				if values is None:
-					values = []
-				values.append(argvs)
-			else:
+			if type(argvs) == dict:
 				if values is None:
 					values = {}
 				for arg in args:
 					if arg not in values:
 						values[arg] = []
 					values[arg].append(argvs[arg])
+			else:
+				if values is None:
+					values = []
+				values.append(argvs)
 
 		return values
 

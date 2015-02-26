@@ -27,14 +27,16 @@ class RangesIterator(object):
 		## Interpret ranges
 		pam_values = {}
 		count = None
-		for param, pam_range in pam_ranges.items():
 
+		for param, pam_range in pam_ranges.items():
 			if ranges_eval is not None and ranges_eval.ndim == len(self.ranges) and param in ranges_eval.dtype.fields.keys() and not np.any(np.isnan(ranges_eval[param])): # If values already exist in ranges_eval, reuse them
 				pam_values[param] = ranges_eval[param][iteration + (slice(None),) + tuple([0]*(ranges_eval.ndim-len(iteration)-1))]
-			else:
-				tparams = params.copy()
-				tparams[param] = pam_range
-				pam_values[param] = self.p.range(param,**tparams)
+
+		tparams = params.copy()
+		tparams.update(pam_ranges)
+		tparams.update(pam_values)
+
+		pam_values = self.p.range(pam_ranges.keys(),**tparams)
 
 		c = len(pam_values[param])
 		count = c if count is None else count
