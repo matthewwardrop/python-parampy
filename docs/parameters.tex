@@ -1,0 +1,621 @@
+%% LyX 2.1.1 created this file.  For more info, see http://www.lyx.org/.
+%% Do not edit unless you really know what you are doing.
+\documentclass[english]{article}
+\usepackage[T1]{fontenc}
+\usepackage{babel}
+\usepackage{multicol}
+\usepackage{xtab}
+
+\usepackage{geometry}
+\geometry{verbose,tmargin=2cm,bmargin=2cm,lmargin=2cm,rmargin=2cm}
+
+
+\usepackage{minted}
+\newminted{python}{mathescape,linenos,numbersep=5pt,autogobble=true,frame=lines,framesep=2mm}
+\newminted{pycon}{mathescape,linenos,numbersep=5pt,autogobble=true,frame=lines,framesep=2mm}
+\newminted{shell-session}{mathescape,linenos,numbersep=5pt,autogobble=true,frame=lines,framesep=2mm}
+
+\setlength{\parskip}{0.5em plus4mm minus3mm}
+
+\begin{document}
+
+  \title{Python-Parameters Documentation}
+
+  \maketitle
+
+  Keeping track of parameters during simulations can often be cumbersome, especially
+  if those parameters are time- or co- dependent, or if unit conversions are necessary. The {\tt python-parameters} module
+  solves this problem by acting as a central repository of all parameters, their non-dimensionalisation, their
+  interdependencies, their units and their bounds. While providing all of this
+  functionality, {\tt python-parameters} also attempts to maintain minimal overhead
+  so that it is suitable for use in problems requiring iteration (such as
+  numerical integration).
+
+  Properly enumerated, the {\tt python-parameters} module can:
+  \begin{itemize}
+    \item Act as a central location for the storage and retrieval of model parameters.
+    \item Keep track of parameter units, and perform unit conversions where
+    that makes sense.
+    \item Perform non-dimensionalisation of parameters in a consistent fashion
+    to allow for simple model simulations.
+    \item Allow parameters to inter-depend upon one another, and ensure that
+    parameters do not depend upon one another in unresolvable ways.
+    \item Allow parameters to depend on as-yet undeclared runtime values (such
+    as integration time).
+    \item Keep track of limits for parameter values, to ensure parameters do
+    not escape pre-defined parameter ranges.
+    \item Provide this functionality with minimal overhead to allow for speedy
+    simulations.
+  \end{itemize}
+
+  As of version 1.1.9 (the version at time of publication); simple parameter
+  storage and retrieval is only a factor of $\approx$15 slower than a simple
+  parameter set and read; though speeds decrease depending upon how many of the
+  more sophisticated features are used (such as parameter bounding).
+
+  All features are documented and unittested.
+
+  \section{Installation}
+
+  In most cases, installing this module is as easy as:
+
+  \begin{shell-sessioncode}
+    $ python2 setup.py install
+  \end{shell-sessioncode}
+
+  If you run Arch Linux, you can instead run:
+  \begin{shell-sessioncode}
+    $ makepkg -i
+  \end{shell-sessioncode}
+
+
+  \section{Usage Overview}
+
+  In this section, the syntax of {\tt python-parameters} for each major feature
+  is shown, along with simple examples of use within the python interpreter.
+
+  For most users, there are only two classes defined in {\tt python-parameters} that
+  are likely to be interest: {\tt Parameters} and {\tt SIQuantity}. Instances of {\tt Parameters}
+  class do the heavy lifting of managing parameters, whereas {\tt SIQuantity} is the
+  base type of physical quantities (i.e. it represents physical quantities with their units) and
+  handles unit conversions. Both of these classes can be imported from the parameters module using:
+
+  \begin{pyconcode}
+    >>> from parameters import SIQuantity, Parameters
+  \end{pyconcode}
+
+  \subsection{SIQuantity}
+
+  Instantiating an {\tt SIQuantity} class is as simple as calling it with two arguments: a number
+  and some units. For example:
+  \begin{pyconcode}
+    >>> q = SIQuantity(3,'m*s')
+
+    >>> q
+    3 m*s
+  \end{pyconcode}
+
+  The "number" can be any integer, float or numpy array (or types conforming to standard python numeric operations). The "units"
+  can be any SI unit combined with any SI prefix. A complete listing of units and prefixes is provided in tables \ref{tbl:units} and \ref{tbl:prefixes} respectively. Custom units, or unit redefinitions, are also possible; see the source code for more details.
+  Note that the long-form of unit names (rather than their abbreviation) can also be used:
+  \begin{pyconcode}
+    >>> q = SIQuantity(3,'meter*second')
+
+    >>> q
+    3 m*s
+  \end{pyconcode}
+  \begin{table*}
+    \begin{multicols}{2}
+      %\tablefirsthead{}
+      \tablehead{\hline Unit Names & Abbreviations & Dimensions\\\hline}
+      \begin{xtabular}{|c|c|c|}
+
+        \multicolumn{3}{l}{Fundamental SI units} \\
+        \hline
+        constant & non-dim & -\\
+        metre,meter & m & L\\
+        second & s & T\\
+        gram & g & M\\
+        ampere & A & I\\
+        kelvin & K & $\Theta$\\
+        mole & mol & N\\
+        candela & cd & J\\
+        dollar & \$ & \$\\
+        \hline
+
+        \multicolumn{3}{l}{Imperial scales} \\
+        \hline
+        mile & mi & L\\
+        yard & yd & L\\
+        foot & ft & L\\
+        inch & in & L\\
+        point & pt & L\\
+        mmHg & mmHg & $MLT^{-2}$\\
+        \hline
+
+        \multicolumn{3}{l}{Length scales} \\
+        \hline
+        angstrom & Å & L\\
+        astronomical unit & au & L\\
+        lightyear & ly & L\\
+        \hline
+
+        \multicolumn{3}{l}{Volumes} \\
+        \hline
+        litre,liter & L & $L^3$\\
+        gallon & gal & $L^3$\\
+        quart & qt & $L^3$\\
+        \hline
+
+        \multicolumn{3}{l}{Time scales} \\
+        \hline
+        year & year & T\\
+        day & day & T\\
+        hour & h & T\\
+        minute & min & T\\
+        hertz & Hz & $T^{-1}$\\
+        \hline
+
+        \multicolumn{3}{l}{Force} \\
+        \hline
+        newton & N & $MLT^{-2}$\\
+        \hline
+
+        \multicolumn{3}{l}{Pressure} \\
+        \hline
+        atm & atm & $ML^{-1}T^{-2}$\\
+        bar & bar & $ML^{-1}T^{-2}$\\
+        pascal & Pa & $ML^{-1}T^{-2}$\\
+        psi & psi & $ML^{-1}T^{-2}$\\
+        \hline
+
+        \multicolumn{3}{l}{Energy \& Power} \\
+        \hline
+        joule & J & $ML^{2}T^{-2}$\\
+        calorie & cal & $ML^{2}T^{-2}$\\
+        electronvolt & eV & $ML^{2}T^{-2}$\\
+        watt & W & $ML^{2}T^{-3}$\\
+        \hline
+
+        \multicolumn{3}{l}{Electromagnetism} \\
+        \hline
+        coulomb & C & $IT$\\
+        farad & F & $T^{4}I^{2}L^{-2}M^{-1}$\\
+        henry & H & $ML^{2}T^{-2}I^{-2}$\\
+        volt & V & $ML^{2}I^{-1}T^{-3}$\\
+        ohm & Ω & $ML^{2}I^{-2}T^{-3}$\\
+        siemens & mho & $M^{-1}L^{-2}T^{3}I^{2}$\\
+        tesla & T & $MI^{-1}T^{-2}$\\
+        gauss & G & $MI^{-1}T^{-2}$\\
+        weber & Wb & $L^{2}MT^{-2}I^{-1}$\\
+        \hline
+
+      \end{xtabular}
+    \end{multicols}
+    \caption{Supported units}
+    \label{tbl:units}
+  \end{table*}
+  \begin{table}
+    \begin{tabular}{|r||c|c|c|c|c|c|c|c|}
+      \hline
+      Larger Prefixes & kilo & mega & giga & tera & peta & exa & zepto & yotta\tabularnewline
+      Abbreviation & k & M & G & T & P & E & Z & Y\tabularnewline
+      Scaling ($10^x$) & 3 & 6 & 9 & 12 & 15 & 18 & 21 & 24\tabularnewline
+      \hline
+      Smaller Prefixes & milli & micro & nano & pico & femto & atto & zepto & yocto\tabularnewline
+      Abbreviation & m & \{mu\} & n & p & f & a & z & y\tabularnewline
+      Scaling ($10^x$) & -3 & -6 & -9 & -12 & -15 & -18 & -21 & -24\tabularnewline
+      \hline
+    \end{tabular}
+    \caption{Supported prefixes}
+    \label{tbl:prefixes}
+  \end{table}
+
+  Using prefixes with the base units is as simple as prepending them to the unit:
+  \begin{pyconcode}
+    >>> SIQuantity(3,'km*ns')
+    3 km*ns
+  \end{pyconcode}
+
+  Arithmetic with {\tt SIQuantity} instances is very simple, and support is provided
+  for unit conversion, addition, subtraction, multiplication, division, raising to some power and equality tests. In
+  cases where the operation does not make sense, an exception is raised with details
+  as to why. Examples are now provided for each of these operations in turn.
+
+  \begin{pyconcode}
+    >>> SIQuantity(3,'m/s^2')('in/ns^2') # Unit Conversion
+    1.1811023622e-16 ns/ns^2
+
+    >>> SIQuantity(3,'m')+SIQuantity(2,'mm') # Addition
+    3.002 m
+
+    >>> SIQuantity(3,'kJ')-SIQuantity(2,'cal') # Subtraction
+    2.9916264 kJ
+
+    >>> SIQuantity(3.,'mT') / SIQuantity(10,'s') # Division
+    0.3 mT/s
+
+    >>> 2*SIQuantity(3.,'mT') # Scaling
+    6.0 mT
+
+    >>> SIQuantity(2.6,'A')**2 # Squaring
+    6.76 A^2
+
+    >>> SIQuantity(1,'W*h') == SIQuantity(1e-9,'GW*h')
+    True
+
+    >>> SIQuantity(3,'m') + SIQuantity(2,'s') # Nonsense addition
+    UnitConversionError: Invalid conversion. Units 's' and 'm' do not match.
+  \end{pyconcode}
+
+  In each of the above examples, the returned object is another {\tt SIQuantity}
+  object, which can also undergo further arithmetic operation. For convenience,
+  it is not necessary to manually instantiate all physical quantities into
+  {\tt SIQuantity} objects; provided that at least one of the operands involved
+  in the calcuation is already an {\tt SIQuantity} object. For example, the addition
+  example above could be simplified to:
+  \begin{pyconcode}
+    >>> SIQuantity(3,'m')+(2,'mm') # Addition
+    3.002 m
+
+    >>> (3,'m')+SIQuantity(2,'mm') # Addition
+    3002.0 mm
+  \end{pyconcode}
+  Be careful when using this contraction that order of operations does not cause
+  the tuple to perform some undefined operation with something else. For example:
+  \begin{pyconcode}
+    >>> 2*(3,'m')+SIQuantity(2,'mm') # Addition
+    This becomes (3,'m',3,'m') + SIQuantity(2,'mm'), which is ill-defined.
+  \end{pyconcode}
+
+  The {\tt Quantity} class, which is the base class for the {\tt SIQuantity} class
+  is quite flexible, and if you want to implement a non-SI system, or add custom units,
+  look at the source code for {\tt SIQuantity} and {\tt SID}, which should tell you everything you need
+  to know.
+
+  \subsection{Parameters}
+
+  The {\tt Parameters} class handles the heavy lifting of managing named parameters, their
+  values, relationships and conversions; using {\tt Quantity} objects to represent physical
+  quantities. Initialising a {\tt Parameters} object is as simple as:
+  \begin{pyconcode}
+    >>> p = Parameters()
+  \end{pyconcode}
+  There are three optional arguments that can be passed to this initialiser:
+  \begin{itemize}
+    \item {\tt default\_scaled=True}: Whether parameters should return non-dimensionalised
+    values instead of {\tt Quantity} objects. By default, this is {\tt True}. This
+    can be negated at runtime.
+    \item {\tt constants=False}: Whether to populate the parameter namespaces with various
+    physical constants, all of which are prefixed with ``c\_'' (e.g. {\tt c\_hbar}). By default,
+    this is {\tt False}.
+    \item {\tt dispenser=None}: A custom {\tt UnitDispenser} to use instead of the standard
+    SI one. Most users will not need to touch this.
+  \end{itemize}
+
+  The tasks you might want to achieve with parameters within a {\tt Parameters} instance loosely fall into
+  three categories: definition, extraction, and transformation; which are dealt with in the next
+  three subsubsections. There are more advanced ways of interacting with a {\tt Parameters} instance
+  which are beyond the scope of this overview. More information can be found by using the inbuild
+  {\tt help} facility built into Python on each of {\tt Parameters'} methods.
+
+  \subsubsection{Parameter Definition}
+  Setting a parameter value can be done in several ways, with varying degress of flexibility.
+
+  If you want to set a parameter to a static value (i.e. one that does not
+  actively depend upon later values of other parameters) you can use the following
+  methods:
+  \begin{pyconcode}
+    Set an attribute using: p.<param_name> = <param_value>
+    This method does not ``interpret'' the parameter value (explained later).
+    >>> p.x = 1
+    >>> p.y = (1,'cm')
+    Equivalently, you can set the parameter using a function call,
+    which has the benefit of being able to define multiple parameters at
+    once: p(<param_name_1>=<param_value_1>,....,<param_name_n>=<param_value_n>,)
+    This method _does_ ``interpret'' the parameter value.
+    >>> p(x=1,y=(1,'cm'))
+    Finally, in a way that is also not ``interpreted'', you can set a dictionary
+    of parameter values using:
+    >>> p << {'x':1, 'y':(1,'cm')}
+  \end{pyconcode}
+
+  Parameter names can be any legal python variable name (except those starting with an underscore). Parameter values can
+  be any inbuilt number type (including {\tt complex}), any function/lambda object (or a string representing
+  a mathematical expression which is then converted to a function), any tuple of preceeding types
+  with a unit, and any Quantity object.
+
+  The function/lambda support in the values for parameters is where the {\tt Parameters} object
+  garners much of its power. This allows parameters to depend on each other in potentially
+  complex ways. For example:
+  \begin{pyconcode}
+    >>> p(x=1,y=2,z=lambda x,y: x+y) # or p(....,z='x+y')
+    < Parameters with 3 definitions >
+    >>> p.z
+    3
+  \end{pyconcode}
+  In the above example, {\tt x} and {\tt y} are set to be $1$ and $2$ respectively,
+  and {\tt z} is set to be their sum. At this point, {\tt z} is only statically defined
+  as their {\em current} sum;  were {\tt x} or {\tt y} to change, {\tt z} would remain
+  unchanged. This is because the parameter value for {\tt z} was interpreted. To cause {\tt z}
+  to be a dynamic function of {\tt x} and {\tt y}, one must use a method that
+  does not interpret the value:
+  \begin{pyconcode}
+    >>> p(x=1,y=2)
+    < Parameters with 2 definitions >
+    >>> p.z = lambda x,y: x+y # Or equivalently: p.z = 'x+y' or p << {'z': lambda x,y: x+y}
+    >>> p.z
+    3
+    >>> p(x=3,y=1).z
+    4
+  \end{pyconcode}
+  {\tt Parameters} objects will prevent functions from being added that cause
+  parameters loops. That is, a parameter {\tt x} cannot depend on a parameter {\tt y} if
+  parameter {\tt y} directly or indirectly depends upon the value of {\tt x}.
+
+  It is also possible to set parameters to depend on other parameters in an invertable
+  way, so that when that parameter is directly changed, the underlying variables
+  are updated self-consistently. This is achieved by setting a parameter equal
+  to function/lambda object that has an extra option keyword argument of the same name. The
+  function should return an inverse mapping for all dependent parameters as a list if z is specified.
+  For example:
+  \begin{pyconcode}
+    >>> p(x=1,y=2) << {'z':lambda x,y,z=None:x+y if z is None else [1,z-1]}
+    >>> p(z = 12) # Don't use p.z=12, because that leads to z no longer being a function
+    >>> p.x
+    1
+    >>> p.y
+    11
+  \end{pyconcode}
+
+  To see an overview of the parameters stored in a {\tt Parameters} instance, and
+  the relationships between them, simply run:
+  \begin{pyconcode}
+    >>> p.show()
+    | Parameter |   Value    | Scaled |
+    |     x     | 1.0 units  |  1.0   |
+    |     y     | 11.0 units |  11.0  |
+    | z(x,y,z)  | 12.0 units |  12.0  |
+  \end{pyconcode}
+
+  To remove a parameter definition, simply use the {\tt forget} method:
+  \begin{pyconcode}
+    >>> p.forget('x','y','z') # You can add as many parameters as you like here.
+    < Parameters with 0 definitions >
+  \end{pyconcode}
+
+  Importantly, when you specify a parameter value, {\tt Parameters} instances will record the units
+  of the value specified as the units of that parameter. If you need to override these units, use:
+  \begin{pyconcode}
+    >>> p.y = (1,'s')
+    >>> p & {'y':'ms'}
+    >>> p.y
+    1000 ms
+  \end{pyconcode}
+  Changing the scaling is only possible when converting to units with the same dimensions.
+
+  Throughout the use of the {\tt Parameters} object, you may wish to ensure that
+  certain parameters remain within certain bounds. You can set bounds on parameters
+  using:
+  \begin{pyconcode}
+    >>> p['x'] = (0,100)
+    This constrains the parameter x to be within 0-100 (inclusive)
+    >>> p['x'] = (0,None)
+    If None is used, it is taken to be + or - infinity depending on whether
+    it is the upper or lower bound. You can use this to create regions in which the
+    parameter cannot lie.
+    >>> p['x'] = [(None,10),(15,None)]
+    This causes any value of x to be permitted except values between 10 and 15 (inclusive).
+  \end{pyconcode}
+  For more advanced bounding, you use the {\tt set\_bounds} method, which takes three additional
+  keyword arguments in addition to the bounds themselves: {\tt error=True}, {\tt clip=False}, and {\tt inclusive=True};
+  each of which is boolean valued, with defaults as specified. If {\tt error} is True, then when a parameter exits the bound, an
+  error is raised (otherwise, a warning is raised). If {\tt clip} is True, then
+  {\tt Parameters} will set the parameter to the nearest edge of allowed values, and warn the user
+  if the {\tt error} flag is true. If {\tt inclusive} is True, bounds are considered to be inclusive. For example:
+  \begin{pyconcode}
+    >>> p.set_bounds({'x':[(None,10),(15,None)]},inclusive=True,clip=True)
+  \end{pyconcode}
+  Bounds checking is computationally taxing, so if performance is a concern, we
+  do not recommend using bounds.
+
+  If you want to temporarily define some parameters within some scope, and protect
+  the existing definitions, {\tt Parameters} objects support context management using
+  the python {\tt with} syntax. For example:
+  \begin{pyconcode}
+    >>> p(x=1,y=2,z=3)
+    >>> with p:
+    ...   p(z=4,a=10)
+    ...   p('z','a')
+    ...   # Do clever things with these parameters
+    >>> # z is now restored to its original value of 3; and a no longer exists within p.
+  \end{pyconcode}
+
+  Parameter definitions and values can be loaded and/or saved to a file using:
+  \begin{pyconcode}
+    >>> p = Parameters.load('filename.py')
+    >>> p >> 'filename.py'
+  \end{pyconcode}
+  A sample file which can be loaded by Parameters is available in the source code repository.
+
+  \subsubsection{Parameter Extraction}
+  In the previous section, we have already seen one way of extracting parameter values; that is,
+  using python object attributes.
+  \begin{pyconcode}
+    >>> p.x = 1
+    >>> p.x
+    1
+  \end{pyconcode}
+  This method works except for when the variable name clashes with some method of the
+  {\tt Parameters} object; in which case the {\tt Parameters} method will be returned.
+
+  The more general method for extracting parameters from a {\tt Parameters} object is
+  to specify parameters as arguments when calling the parameters object:
+  \begin{pyconcode}
+    >>> p(x=1,y=2,z=3)
+    < Parameters with 3 definitions >
+    >>> p('x')
+    1
+    >>> p('x','y','z')
+    {'x':1, 'y':2, 'z':3}
+  \end{pyconcode}
+
+  As all arguments passed to the parameters object when calling are ``interpreted'',
+  one can also pass functions, and retrieve its value:
+  \begin{pyconcode}
+    >>> p(x=1,y=2,z=3)
+    < Parameters with 3 definitions >
+    >>> p('x+y+z')
+    6
+    >>> p('x+y','y-z')
+    {'x+y':3, 'y-z':-1}
+  \end{pyconcode}
+
+  If you want to temporarily override the values of some parameters during the evaluation
+  of a variable, expression or function; simply pass them as keyword arguments during the call.
+  \begin{pyconcode}
+    >>> p << {'x':1,'y':2,'z':'x+y'}
+    >>> p.z
+    3
+    >>> p('z',x=3,y=10)
+    13
+    >>> p('x','y','z',x=3)
+    {'x':3,'y':2,'z':5}
+  \end{pyconcode}
+
+  Lastly, if you want to extract the unitted value of a parameter, rather than its
+  non-dimensional version (or vice versa if you used {\tt default\_scaled=False}), then
+  simply prepend an underscore ('\_') to the parameter name.
+  \begin{pyconcode}
+    >>> p(x=(1,'m'),y=(2,'ns'),z=(3,'{mu}eV'))
+    < Parameters with 3 definitions >
+    >>> p('x','y','z')
+    {'x': 1, 'y': 2e-9, 'z': 4.806529461e-25}
+    >>> p('_x','_y','_z')
+    {'x': 1 m, 'y': 2 ns, 'z': 3 {mu}eV}
+  \end{pyconcode}
+
+  \subsubsection{Parameter Transformations}
+    The remainder of the functionality in the {\tt Parameters} object involves various
+    transformations of parameters.
+
+    Firstly, it is possible to change the scalings applied to yield the non-dimensional
+    quantities. This allows, for example, for your non-dimension quantities to
+    reflect the values of your parameters in natural units. This is achieved by
+    explicitly changing the scaling of your parameters using:
+    \begin{pyconcode}
+      >>> p.scaling(length=(2,'m'),current=(1,'mA')) # etc...
+    \end{pyconcode}
+    By default, the non-dimensional quantities are simply the numerical values of
+    the parameters in SI base units; and so the above command cause non-dimensional
+    values with dimensions $\propto L$ to be scaled by a factor of $\frac{1}{2}$. The
+    current scaling for a dimension can be retrieved using:
+    \begin{pyconcode}
+      >>> p.scaling('mass')
+      1 kg
+      >>> p.scaling('length','time') # Plus whichever other dimensions you care about
+      {'length': 2 m, 'time': 1 s}
+    \end{pyconcode}
+    Most of the physical quantities you will be using have composite units, and
+    you can view the cumulative scaling relative to SI units for a quantity using:
+    \begin{pyconcode}
+      >>> p.scaling(length=10)
+      >>> p.unit_scaling('J')
+      10.0
+      >>> p.unit_scaling('J','W')
+      {'J': 10.0, 'W': 10.0}
+    \end{pyconcode}
+
+    Another useful tool of the {\tt Parameters} object is unit conversion of (potentially) non-{\tt Quantity}
+    objects. The syntax for this is:\\
+    {\tt p.convert( <object>, input=<input units>, output=<output units>, value=<True/False> )},\\
+    where {\tt input} is the units that {\tt Parameters} should assume the object has, {\tt output} is
+    the desired output units, and {\tt value} (with default True) specifies whether or not you are only interested in its
+    numerical value, or whether a {\tt Quantity} object should be returned. If not specified, or equal to
+    {\tt None}, the input and output units are assumed to refer to the non-dimensional quantities
+    used by the {\tt Parameters} object. For example:
+    \begin{pyconcode}
+      The following command converts 1 ns to a non-dimensional quantity:
+      >>> p.convert(1, input='ns')
+      1e-9
+
+      The following command converts 4 J to a value with units of calories:
+      >>> p.convert(4, input='J', output='cal')
+      0.9553835865099838
+
+      The following command converts 5 $/day to a Quantity with units of years:
+      >>> p.convert(5, input='$/day', output='$/year', value=False)
+      1826.21095 $/year
+
+      Note that this utility still works for Quantity units as well, in which
+      case the `input` argument is ignored, and read from the Quantity object.
+      >>> p.convert(SIQuantity(1,'km'),output='m')
+      1000.0
+    \end{pyconcode}
+
+    The last big feature of {\tt Parameters} is support for generating ranges of parameters.
+    This is especially useful when it is necessary to iterate over a parameter value
+    while exploring some parameters space. The syntax for this command is similar to the
+    normal parameter extraction method; but is kept separate for clarity and efficiency.
+    Let us first consider a basic example:
+    \begin{pyconcode}
+      >>> p.range('x',x=[1,2,3,4])
+      [1,2,3,4]
+    \end{pyconcode}
+    In this trivial example, we see the basic syntax of the {\tt range} method. Parameters
+    of interest are indicated as arguments; and parameter ranges/overrides are specified
+    as kwargs. Arrays of numbers may be specified using lists or numpy arrays. Let's consider
+    something a little more complicated.
+    \begin{pyconcode}
+      >>> p.y = lambda x: x**2
+      >>> p.range('y',x=[0,1,2,3,4])
+      [0.0, 1.0, 4.0, 9.0, 16.0]
+    \end{pyconcode}
+    We see here that the ranges specified as keyword arguments are treated as temporary
+    overrides, just as they were in the parameter extraction methods; but now they are
+    iterated over. Combining static overrides and ranges is easy:
+    \begin{pyconcode}
+      >>> p.z = lambda x,y: (x+y)**2
+      >>> p.range('z',x=[0,1,2,3,4],y=10)
+      [100.0, 121.0, 144.0, 169.0, 196.0]
+    \end{pyconcode}
+    You can also have multiple ranges at once, but they must have the same length:
+    \begin{pyconcode}
+      >>> p.z = lambda x,y: (x+y)**2
+      >>> p.range('x','z',x=[0,1,2,3,4],y=[10,11,12,13,14])
+      {'x': [0, 1, 2, 3, 4], 'z': [100.0, 144.0, 196.0, 256.0, 324.0]}
+    \end{pyconcode}
+    Note that united quantites are also supported in ranges (as tuples or {\tt Quantity} objects).
+
+    {\tt Parameters} also supports automatic expansion of parameter ranges, in which case
+    parameter ranges are passed as keyword arguments as tuples with one of the following
+    forms:
+    \begin{itemize}
+      \item (<start>,<stop>,<count>) ; which will generate a linear array from
+      <start> to <stop> with <count> values.
+      \item (<start>,<stop>,<count>,<sampler>) ; which is as above, but where the <sampler> is expected to generate
+      the array. <sampler> can be a string (either 'linear','log','invlog'
+      for linear, logarithmic, or inverse logarithmic distributions respectively).
+      \item (arg1, arg2, arg3, ..., <function>) ; where there must be three or more arguments (which need not be used),
+      the expansion of which will be: <function>(*args).
+    \end{itemize}
+    For example:
+    \begin{pyconcode}
+      >>> p.z = lambda x,y: (x+y)**2
+      >>> p.range('x',x=(0,3,5))
+      [0.0, 0.75, 1.5, 2.25, 3.0]
+      >>> p.range('x',x=(0,3,5,'log'))
+      [0.0,
+       5.304838230116769e-07,
+       9.4865329805051373e-05,
+       0.01687023675571047,
+       2.9999999970000002]
+      >>> p.range('z',x=(0,3,5,'log'),y=(0,3,5,'invlog'))
+      [8.9999999820000021,
+       0.00028462278725051619,
+       3.599772319608467e-08,
+       0.00028462278725051619,
+       8.9999999820000021]
+    \end{pyconcode}
+
+\end{document}
