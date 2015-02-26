@@ -1366,6 +1366,7 @@ class Parameters(object):
 			import matplotlib.pyplot as plt
 		except:
 			print colour_text("Matplotlib is required for plotting features.", "RED", True)
+			return
 
 		if len(params) == 0:
 			raise ValueError("You must specify a parameter to plot. i.e. plot('x',t=(0,10,10))")
