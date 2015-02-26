@@ -269,6 +269,11 @@ class TestParameters(unittest.TestCase):
 		self.assertEqual(p.z, 2)
 		self.assertEqual(str(p.units('t')),'ns')
 
+	def test_dictmode(self):
+		self.p.z = 1
+		self.assertEqual(type(self.p(['z'])), dict)
+		self.assertEqual(type(self.p.range(['z'],z=[0,1,2])), dict)
+
 
 if __name__ == '__main__':
 

@@ -1101,6 +1101,9 @@ class Parameters(object):
 
 	def range(self, *args, **ranges):
 
+		if len(args) == 0:
+			raise ValueError('Please specify output variables from ranges.')
+
 		values = None
 		static = {}
 		lists = {}
@@ -1125,6 +1128,11 @@ class Parameters(object):
 		if count is None:
 			return self.__get(args, ranges)
 
+		if type(args[0]) == list:
+			pargs = args[0]
+		else:
+			pargs = args
+
 		for i in range(count):
 			d = {}
 			d.update(static)
@@ -1136,7 +1144,7 @@ class Parameters(object):
 			if type(argvs) == dict:
 				if values is None:
 					values = {}
-				for arg in args:
+				for arg in pargs:
 					if arg not in values:
 						values[arg] = []
 					values[arg].append(argvs[arg])
