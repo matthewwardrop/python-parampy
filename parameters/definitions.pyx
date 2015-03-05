@@ -1,9 +1,10 @@
 # coding=utf-8
 
 from .units import UnitDispenser, Unit
+from .quantities import Quantity
 
 
-class SIDispenser(UnitDispenser):
+class SIUnitDispenser(UnitDispenser):
 	def init_prefixes(self):
 		self._prefixes = [
 			("yotta", "Y", 1e24),
@@ -15,7 +16,7 @@ class SIDispenser(UnitDispenser):
 			("mega", "M", 1e6),
 			("kilo", "k", 1e3),
 			("milli", "m", 1e-3),
-			("micro", "{mu}", 1e-6),
+			("micro", (u"μ", "{mu}"), 1e-6),
 			("nano", "n", 1e-9),
 			("pico", "p", 1e-12),
 			("femto", "f", 1e-15),
@@ -28,7 +29,7 @@ class SIDispenser(UnitDispenser):
 
 		# Fundamental SI units
 		self \
-			+ Unit(["constant", "non-dim", "1"], "", 1.0) \
+			+ Unit(["constant", "non-dim", "1"], "", 1.0, prefixable=False) \
 			+ Unit(["metre", "meter"], "m", 1.0).set_dimensions(length=1) \
 			+ Unit("second", "s", 1.0).set_dimensions(time=1) \
 			+ Unit("gram", "g", 1e-3).set_dimensions(mass=1) \
@@ -36,30 +37,26 @@ class SIDispenser(UnitDispenser):
 			+ Unit("kelvin", "K", 1.0).set_dimensions(temperature=1) \
 			+ Unit("mole", "mol", 1.0).set_dimensions(substance=1) \
 			+ Unit("candela", "cd", 1.0).set_dimensions(intensity=1) \
-			+ Unit("dollar", "$", 1.0).set_dimensions(currency=1)
+			+ Unit("dollar", "$", 1.0, prefixable=False).set_dimensions(currency=1)
 		self.basis(mass='kg')
 
 		# Scales
-		self \
-			+ Unit("angstrom", u"Å", 1e-10).set_dimensions(length=1) \
-			+ Unit("astronomical unit", "au", 149597870691.0).set_dimensions(length=1) \
-			+ Unit("lightyear", "ly", 9460730472580800.).set_dimensions(length=1)
-
-		# Imperial Scales
 		self \
 			+ Unit("mile", "mi", 201168. / 125).set_dimensions(length=1) \
 			+ Unit("yard", "yd", 0.9144).set_dimensions(length=1) \
 			+ Unit("foot", "ft", 381. / 1250, plural="feet").set_dimensions(length=1) \
 			+ Unit("inch", "in", 127. / 5000., plural="inches").set_dimensions(length=1) \
 			+ Unit("point", "pt", 1.27 / 5000.).set_dimensions(length=1) \
-			+ Unit("mmHg", "mmHg", 101325. / 760).set_dimensions(mass=1, length=-1, time=-2)
+			+ Unit("angstrom", u"Å", 1e-10).set_dimensions(length=1) \
+			+ Unit("astronomical unit", "au", 149597870691.0).set_dimensions(length=1) \
+			+ Unit("lightyear", "ly", 9460730472580800.).set_dimensions(length=1)
 
 		# Time
 		self \
-			+ Unit("year", "year", 3944615652. / 125).set_dimensions(time=1) \
-			+ Unit("day", "day", 86400.0).set_dimensions(time=1) \
-			+ Unit("hour", "h", 3600.).set_dimensions(time=1) \
-			+ Unit("minute", "min", 60.).set_dimensions(time=1) \
+			+ Unit("year", "year", 3944615652. / 125, prefixable=False).set_dimensions(time=1) \
+			+ Unit("day", "day", 86400.0, prefixable=False).set_dimensions(time=1) \
+			+ Unit("hour", "hour", 3600., prefixable=False).set_dimensions(time=1) \
+			+ Unit("minute", "min", 60., prefixable=False).set_dimensions(time=1) \
 			+ Unit("hertz", "Hz", 1.).set_dimensions(time=-1)
 
 		# Force
@@ -71,6 +68,7 @@ class SIDispenser(UnitDispenser):
 			+ Unit("atm", "atm", 101325.0).set_dimensions(mass=1, length=-1, time=-2) \
 			+ Unit("bar", "bar", 100000.0).set_dimensions(mass=1, length=-1, time=-2) \
 			+ Unit("pascal", "Pa", 1.).set_dimensions(mass=1, length=-1, time=-2) \
+			+ Unit("mmHg", "mmHg", 101325. / 760).set_dimensions(mass=1, length=-1, time=-2) \
 			+ Unit("psi", "psi", 6894.757).set_dimensions(mass=1, length=-1, time=-2)
 
 		# Energy
@@ -97,3 +95,11 @@ class SIDispenser(UnitDispenser):
 			+ Unit("gallon", "gal", 4 * 473176473. / 125000000000).set_dimensions(length=3) \
 			+ Unit("quart", "qt", 473176473. / 125000000000).set_dimensions(length=3) \
 			+ Unit("weber", "Wb", 1.).set_dimensions(length=2, mass=1, time=-2, current=-1)
+
+class SIQuantity(Quantity):
+
+	def _new(self, value, units, dispenser=None):
+		return SIQuantity(value, units, dispenser=self._dispenser if dispenser is None else dispenser)
+
+	def _fallback_dispenser(self):
+		return SIUnitDispenser()

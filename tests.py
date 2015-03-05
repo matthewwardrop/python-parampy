@@ -5,7 +5,7 @@ import numpy as np
 import warnings
 warnings.filterwarnings("ignore")
 
-from parameters import Parameters,SIDispenser,Quantity,SIQuantity,Unit, UnitDispenser, Units, errors
+from parameters import Parameters,SIUnitDispenser,Quantity,SIQuantity,Unit, UnitDispenser, Units, errors
 
 ###################### UNIT TESTS ##############################################
 import unittest
@@ -13,14 +13,14 @@ import unittest
 class TestUnit(unittest.TestCase):
 
 	def test_creation(self):
-		unit = Unit('name','nm',rel=2.0,prefixable=False,plural='names').set_dimensions(length=1)
-		self.assertEqual(unit.names,['name'])
+		unit = Unit('name',abbr='nm',rel=2.0,prefixable=False,plural='names').set_dimensions(length=1)
+		self.assertEqual(unit.names,('name',))
 		self.assertEqual(unit.dimensions,{'length':1})
 
 class TestUnitsDispenser(unittest.TestCase):
 
 	def setUp(self):
-		self.ud = SIDispenser() # Initialising this already tests addition of units
+		self.ud = SIUnitDispenser() # Initialising this already tests addition of units
 
 	def test_get_units(self):
 		self.assertEqual(str(self.ud('kg^2/s')),'kg^2/s')
@@ -152,7 +152,7 @@ class TestParameters(unittest.TestCase):
 		self.assertEqual( self.p(lambda _x,_y : _x**2 + _y**2), 5 )
 
 	def test_units(self):
-		self.p.unit_add(names='testunit',abbr='TU',rel=1e7,dimensions={'length':1,'mass':1},prefixable=False)
+		self.p.unit_add(name='testunit',abbr='TU',rel=1e7,dimensions={'length':1,'mass':1},prefixable=False)
 		self.assertEqual( self.p('x',x=(1,'TU'))('kg*m') , SIQuantity(1e7,'kg*m') )
 
 	def test_reserved(self):

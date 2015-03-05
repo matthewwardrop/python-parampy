@@ -7,13 +7,13 @@ from .text import colour_text
 
 class Unit(object):
 	'''
-	Unit (names,abbr=None,rel=1.0,prefixable=True,plural=None,dimensions={})
+	Unit (name,abbr=None,rel=1.0,prefixable=True,plural=None,dimensions={})
 
 	The fundamental unit object.
 
 	Parameters
 	----------
-	names : A string or list of strings that are used as full names for this
+	name : A string or list of strings that are used as full names for this
 		unit.
 	abbr : A string that will be used to represent the abbreviated unit.
 	rel : The size of this unit compared to some fixed arbitrary basis. For
@@ -41,11 +41,10 @@ class Unit(object):
 	>>> u.set_dimensions(length=1,mass=-2)
 	The set_dimensions object returns the Unit object itself, so that it can
 	be chained.
-
 	'''
 
-	def __init__(self, names, abbr=None, rel=1.0, prefixable=True, plural=None, dimensions={}):
-		self.names = names if isinstance(names, (tuple, list)) else [names]
+	def __init__(self, name, abbr=None, rel=1.0, prefixable=True, plural=None, dimensions=None):
+		self.name = name
 		self.abbr = abbr
 		self.plural = plural
 
@@ -54,12 +53,53 @@ class Unit(object):
 
 		self.dimensions = dimensions
 
+	@property
+	def name(self):
+		return self.__names[0]
+	@name.setter
+	def name(self, name):
+		self.__names = name if isinstance(name, (tuple, list)) else (name,)
+	@property
+	def names(self):
+		return self.__names
+
+	@property
+	def abbr(self):
+		if self.__abbrs is None:
+			return None
+		return self.__abbrs[0]
+	@abbr.setter
+	def abbr(self, abbr):
+		if abbr is None:
+			self.__abbrs = None
+		else:
+			self.__abbrs = abbr if isinstance(abbr, (tuple, list)) else (abbr,)
+	@property
+	def abbrs(self):
+		return self.__abbrs
+
+	@property
+	def dimensions(self):
+		return self.__dimensions
+	@dimensions.setter
+	def dimensions(self, dimensions):
+		if dimensions is None:
+			dimensions = {}
+		if type(dimensions) != dict:
+			raise ValueError("Invalid specications of unit dimensions.")
+		self.__dimensions = dimensions
 	def set_dimensions(self, **dimensions):
-		self.dimensions = dimensions
+		self.__dimensions = dimensions
 		return self
 
 	def __repr__(self):
-		return self.names[0]
+		return str(self)
+
+	def __unicode__(self):
+		return self.name
+
+	def __str__(self):
+		return unicode(self).encode('utf-8')
 
 
 class UnitDispenser(object):
@@ -153,7 +193,8 @@ class UnitDispenser(object):
 		for name in unit.names:
 			self._units[name] = unit
 		if unit.abbr != None:
-			self._units[unit.abbr] = unit
+			for abbr in unit.abbrs:
+				self._units[abbr] = unit
 
 		for dimension in unit.dimensions:
 			if dimension not in self._dimensions or self._dimensions[dimension] is None:
@@ -170,13 +211,28 @@ class UnitDispenser(object):
 			for prefix in self._prefixes:
 				self.add(
 					Unit(
-						names="%s%s" % (prefix[0], unit.names[0]),
-						abbr="%s%s" % (prefix[1], unit.abbr) if unit.abbr is not None else None,
-						plural="%s%s" % (prefix[0], unit.plural) if unit.plural is not None else None,
+						name=self.__generate_units(unit.names, prefix[0]),
+						abbr=self.__generate_units(unit.abbrs, prefix[1]),
+						plural=self.__generate_units(unit.plural, prefix[0]),
 						rel=unit.rel * prefix[2],
 						prefixable=False
 					).set_dimensions(**unit.dimensions),
 					check=False)
+
+	def __generate_units(self, names, prefixes):
+		if names is None or prefixes is None:
+			return None
+
+		if not type(names) in (list,tuple):
+			names = (names,)
+		if not type(prefixes) in (list,tuple):
+			prefixes = (prefixes,)
+
+		units = []
+		for name in names:
+			for prefix in prefixes:
+				units.append("%s%s" % (prefix, name))
+		return units
 
 	def __add__(self, unit):
 		self.add(unit)
@@ -315,7 +371,9 @@ class Units(object):
 		raise errors.UnitInvalidError("Unrecognised unit description %s" % units)
 
 	def __repr__(self):
+		return str(self)
 
+	def __unicode__(self):
 		output = []
 
 		items = sorted(self.__units.items())
@@ -339,6 +397,9 @@ class Units(object):
 					output += "/%s" % unit.abbr
 
 		return output
+
+	def __str__(self):
+		return unicode(self).encode('utf-8')
 
 	def scale(self, scale):
 		'''
@@ -400,7 +461,7 @@ class Units(object):
 			if dimensions[dimension] != 0:
 				dimensionString += "*%s^%f" % (dimensionMap[dimension].abbr if dimensionMap[dimension].abbr is not None else dimensionMap[dimension], float(dimensions[dimension]))
 
-		return Unit(dimensionString[1:], dispenser=self.__dispenser)
+		return Units(dimensionString[1:], dispenser=self.__dispenser)
 
 	@property
 	def units(self):

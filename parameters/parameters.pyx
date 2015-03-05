@@ -1,8 +1,8 @@
 from . import errors
 from . import physical_constants
-from .definitions import SIDispenser
+from .definitions import SIUnitDispenser
 from .iteration import RangesIterator
-from .quantities import Quantity, SIQuantity
+from .quantities import Quantity
 from .text import colour_text
 from .units import Units, Unit
 import copy
@@ -17,22 +17,26 @@ import warnings
 
 
 class Parameters(object):
-	"""
-	Parameters(dispenser=None,default_scaled=True,constants=False)
+	"""Parameters(dispenser=None,default_scaled=True,constants=False)
 
 	An object to manage the generation of scaled parameters; as well as
 	handle the dependence of parameters upon one another. Parameters also
 	supports adding bounds to parameters.
 
+	:param dispenser: Should provide None or a custom unit dispenser. If None is
+		provided, Parameters will instantiate an SIUnitDispenser; which hosts
+		the standard units relative to an SI basis.
+	:type dispenser: UnitDispenser
+
 	Parameters
 	----------
 	dispenser : Should provide None or a custom unit dispenser. If None is
-		provided, Parameters will instantiate an SIDispenser; which hosts
+		provided, Parameters will instantiate an SIUnitDispenser; which hosts
 		the standard units relative to an SI basis.
 	default_scaled : Whether the created Parameter object should by default
 		return scaled (unitless) parameters.
 	constants : Whether Parameters should import the physical constants when
-		unit dispenser is subclass of SIDispenser.
+		unit dispenser is subclass of SIUnitDispenser.
 
 	Examples
 	--------
@@ -246,7 +250,7 @@ class Parameters(object):
 	## Physical Constants
 
 		To make life easier, Parameters instances also broadcasts the physical
-		constants defined in "physical_constants.py" when using an SIDispenser
+		constants defined in "physical_constants.py" when using an SIUnitDispenser
 		if constants is set to 'True'. These constants function just as
 		any other parameter, and can be overriden. For example:
 		>>> p.c_hbar
@@ -277,7 +281,7 @@ class Parameters(object):
 		self.__parameters = {}
 		self.__parameters_bounds = None
 		self.__scalings = {}
-		self.__units = dispenser if dispenser is not None else SIDispenser()
+		self.__units = dispenser if dispenser is not None else SIUnitDispenser()
 		self.__units_custom = []
 		self.__default_scaled = default_scaled
 
@@ -288,7 +292,7 @@ class Parameters(object):
 
 		self.__scaling_cache = {}
 
-		if constants and isinstance(self.__units, SIDispenser):
+		if constants and isinstance(self.__units, SIUnitDispenser):
 			self(**physical_constants.constants)
 
 	############## PARAMETER OBJECT CONFIGURATION ##############################

@@ -4,7 +4,6 @@ from functools import total_ordering
 import numpy as np
 
 from .units import UnitDispenser, Units
-from .definitions import SIDispenser
 from .text import colour_text
 
 @total_ordering
@@ -79,7 +78,7 @@ class Quantity(object):
 	def basis(self):
 		return self(self.units.basis)
 
-	def new(self, value, units, dispenser=None):
+	def _new(self, value, units, dispenser=None):
 		return Quantity(value, units, dispenser=self._dispenser if dispenser is None else dispenser)
 
 	def _fallback_dispenser(self):
@@ -89,93 +88,99 @@ class Quantity(object):
 		dispenser = dispenser if dispenser is not None else self._dispenser
 		if not isinstance(units, Units):
 			units = dispenser(units)
-		return self.new(self.value / units.scale(self.units), units, dispenser)
+		return self._new(self.value / units.scale(self.units), units, dispenser)
 
 	def __repr__(self):
-		return str(self.value) + " " + str(self.units)
+		return str(self)
+
+	def __unicode__(self):
+		return u"%s %s" % (self.value,  unicode(self.units))
+
+	def __str__(self):
+		return unicode(self).encode('utf-8')
 
 	def __add__(self, other):
 		if other == 0:
-			return self.new(self.value, self.units)
+			return self._new(self.value, self.units)
 		elif type(other) is tuple and len(other) == 2:
-			other = self.new(*other)
+			other = self._new(*other)
 		elif not isinstance(other, Quantity):
-			other = self.new(other, None)
+			other = self._new(other, None)
 		scale = other.units.scale(self.units)
-		return self.new(self.value + scale * other.value, self.units)
+		return self._new(self.value + scale * other.value, self.units)
 
 	def __radd__(self, other):
 		return self.__add__(other)
 
 	def __sub__(self, other):
 		if other == 0:
-			return self.new(self.value, self.units)
+			return self._new(self.value, self.units)
 		elif type(other) is tuple and len(other) == 2:
-			other = self.new(*other)
+			other = self._new(*other)
 		elif not isinstance(other, Quantity):
-			other = self.new(other, None)
+			other = self._new(other, None)
 		scale = other.units.scale(self.units)
-		return self.new(self.value - scale * other.value, self.units)
+		return self._new(self.value - scale * other.value, self.units)
 
 	def __rsub__(self, other):
 		if other == 0:
-			return self.new(-self.value, self.units)
+			return self._new(-self.value, self.units)
 		elif type(other) is tuple and len(other) == 2:
-			other = self.new(*other)
+			other = self._new(*other)
 		elif not isinstance(other, Quantity):
-			other = self.new(other, None)
+			other = self._new(other, None)
 		scale = other.units.scale(self.units)
-		return self.new(-self.value + scale * other.value, self.units)
+		return self._new(-self.value + scale * other.value, self.units)
 
 	def __abs__(self):
-		return self.new(abs(self.value), self.units)
+		return self._new(abs(self.value), self.units)
 
 	def __mul__(self, other):
 		if type(other) is tuple and len(other) == 2:
-			other = self.new(*other)
+			other = self._new(*other)
 		try:
 			units = self.units * other.units
-			return self.new(self.value * other.value, units)
+			return self._new(self.value * other.value, units)
 		except AttributeError:
-			return self.new(self.value * other, self.units)
+			return self._new(self.value * other, self.units)
 
 	def __rmul__(self, other):
 		if type(other) is tuple and len(other) == 2:
-			other = self.new(*other)
+			other = self._new(*other)
 		try:
 			units = self.units * other.units
-			return self.new(self.value * other.value, units)
+			return self._new(self.value * other.value, units)
 		except AttributeError:
-			return self.new(self.value * other, self.units)
+			return self._new(self.value * other, self.units)
 
 	def __div__(self, other):
 		if type(other) is tuple and len(other) == 2:
-			other = self.new(*other)
+			other = self._new(*other)
 		try:
 			units = self.units / other.units
-			return self.new(self.value / other.value, units)
+			return self._new(self.value / other.value, units)
 		except AttributeError:
-			return self.new(self.value / other, self.units)
+			return self._new(self.value / other, self.units)
 
 	def __truediv__(self, other):
 		return self.__div__(other)
 
 	def __rdiv__(self, other):
 		if type(other) is tuple and len(other) == 2:
-			other = self.new(*other)
+			other = self._new(*other)
 			return other / self
-		return self.new(other / self.value, 1 / self.units)
+		return self._new(other / self.value, 1 / self.units)
 
 	def __rtruediv__(self, other):
 		return self.__rdiv__(other)
 
 	def __pow__(self, other):
-		return self.new(self.value ** other, self.units ** other)
+		return self._new(self.value ** other, self.units ** other)
 
 	# Duplicate functionality (as in __cmp__) to allow for comparison with non Quantity objects
 	def __eq__(self,other):
 		if type(other) is tuple and len(other) == 2:
-			other = self.new(*other)
+			other = self._new(*other)
 		if isinstance(other, Quantity):
 			scale = self.units.scale(other.units)
 			if self.__truncate(self.value) == self.__truncate(other.value / scale):
@@ -184,7 +189,7 @@ class Quantity(object):
 
 	def __cmp__(self, other):
 		if type(other) is tuple and len(other) == 2:
-			other = self.new(*other)
+			other = self._new(*other)
 		if isinstance(other, Quantity):
 			scale = self.units.scale(other.units)
 			if self.__truncate(self.value) == self.__truncate(other.value / scale):
@@ -205,12 +210,3 @@ class Quantity(object):
 
 	def __rshift__(self, str_units):
 		return self(str_units).value
-
-
-class SIQuantity(Quantity):
-
-	def new(self, value, units, dispenser=None):
-		return SIQuantity(value, units, dispenser=self._dispenser if dispenser is None else dispenser)
-
-	def _fallback_dispenser(self):
-		return SIDispenser()

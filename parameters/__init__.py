@@ -6,7 +6,7 @@ import pyximport; pyximport.install()
 
 import numpy as np
 
-from .quantities import Quantity,SIQuantity
+from .quantities import Quantity
 from .units import UnitDispenser, Units, Unit
-from .definitions import SIDispenser
+from .definitions import SIUnitDispenser, SIQuantity
 from .parameters import Parameters, Bounds
