@@ -255,7 +255,7 @@ class RangesIterator(object):
 		>>> iterator.ranges_eval = <Previously generated ranges_eval>
 		'''
 		if self.__ranges_eval is None:
-			self.__ranges_eval = self.ranges_expand()
+			self.__ranges_eval = self.ranges_expand()[0]
 		return self.__ranges_eval
 	@ranges_eval.setter
 	def ranges_eval(self, ranges_eval):
