@@ -357,7 +357,7 @@ class RangesIterator(object):
 		return params
 
 	def __iter__(self,):
-		ranges_eval, indicies = self.ranges_expand(masks=self.masks, ranges_eval=self.ranges_eval, params=self.params)
+		ranges_eval, indicies = self.ranges_expand()
 
 		start_time = datetime.datetime.now()
 		if self.nprocs not in [0,1] and self.function is not None:
