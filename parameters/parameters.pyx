@@ -5,6 +5,7 @@ from .iteration import RangesIterator
 from .quantities import Quantity
 from .text import colour_text
 from .units import Units, Unit
+
 import copy
 import imp
 import inspect
@@ -17,259 +18,276 @@ import warnings
 
 
 class Parameters(object):
-	"""Parameters(dispenser=None,default_scaled=True,constants=False)
-
-	An object to manage the generation of scaled parameters; as well as
-	handle the dependence of parameters upon one another. Parameters also
-	supports adding bounds to parameters.
+	"""
+	Parameters(dispenser=None, default_scaled=True, constants=False)
 
 	:param dispenser: Should provide None or a custom unit dispenser. If None is
 		provided, Parameters will instantiate an SIUnitDispenser; which hosts
 		the standard units relative to an SI basis.
-	:type dispenser: UnitDispenser
+	:type dispenser: UnitDispenser or None
+	:param default_scaled: :python:`True` when Parameters should by default return scaled non-dimensional parameters. :python:`False` otherwise.
+	:type default_scaled: bool
+	:param constants: :python:`True` when Parameters should import the physical constants when the internal :class:`UnitDispenser` is of type :class:`SIUnitDispenser`. :python:`False` otherwise.
+	:type constants: bool
 
-	Parameters
-	----------
-	dispenser : Should provide None or a custom unit dispenser. If None is
-		provided, Parameters will instantiate an SIUnitDispenser; which hosts
-		the standard units relative to an SI basis.
-	default_scaled : Whether the created Parameter object should by default
-		return scaled (unitless) parameters.
-	constants : Whether Parameters should import the physical constants when
-		unit dispenser is subclass of SIUnitDispenser.
+	:class:`Parameters` is the main class in the :mod:`parameters` package, and
+	acts to organise and manage potentially interdependent physical quantities.
+	The functionality of this class includes:
 
-	Examples
-	--------
+	- Non-dimensionalisation of parameters
+	- Managing parameters which are functions of other parameters
+	- Performing unit conversions of parameters
+	- Iterating over ranges of parameters
+	- Putting bounds on parameters
 
-	Initialising a parameters object with the default settings
-	>>> p = Parameters()
+	A lot of the functionality of the :class:`Parameters` class is handled in
+	"magic" methods, meaning that you will not necessarily find what you want to
+	do by looking at the method documentation alone. In the rest of the class
+	documentation, we cover the use of Parameters magic methods, alluding to
+	the public methods where appropriate.
 
-	## Parameters structure
+	Initialising a Parameters Instance:
+		Initialising a :class:`Parameters` instance with the default configuration is simple:
+
+		>>> p = Parameters()
+
+		If you want to use your own :class:`UnitDispenser`, use united parameters
+		by default, and preload the :class:`Parameters` instance with a set of
+		physical constants, you could use:
+
+		>>> u = SIUnitDispenser()
+		>>> p = Parameters(dispenser=u, default_scaled=False, constants=True)
+
+	Seeing what is stored in a Parameters instance:
 		To see an overview of the parameter object; simply use:
-		>>> p.show()
 
-	## Parameter Extraction
+		>>> p.show() # See show documentation for more.
 
-		To retrieve a parameter 'x' from a Parameters instance, you use:
-		>>> p('x')
-		If default_scaled = True, then this will yield a scaled float. Otherwise
-		this will return a Quantity object, which keeps track of units.
-		To invert this, simply prepend a '_' to the parameter name.
-		>>> p('_x')
+		To get a list of parameters stored, use:
 
-		Provided that the parameter name does not clash with any methods
-		of the Parameters object, you can use a shorthand for this:
-		>>> p.x
-		>>> p._x
+		>>> list(p)
 
-		You can also temporarily override parameters while retrieving them,
-		which is useful especially for functions of parameters. For example,
-		if we want to extract 'y' when 'x'=2, without permanently changing
-		the value of 'x', we could use:
-		>>> p('y',x=2)
+		To check if a parameter is stored:
 
-	## Parameter Setting
+		>>> is_stored = 'x' in p # Will be True if 'x' is in p
 
-		Set a parameter value 'x' to 1 ms.
-		>>> p(x=(1,'ms'))
-		Parameter names must start with a letter or underscore; and may contain
-		any number of letters, numbers, and underscores.
+	Parameter Definition:
+		There are several ways to define parameters, each of which is shown below:
+
+		>>> p(x=1)
+		>>> p << {'x':1}
+		>>> p['x'] = 1
+		>>> p.x = 1
+
+		The first two methods generalise to defining multiple parameters at once,
+		whereas the second two do not. The first and third set parameters *after*
+		first interpreting the value given (in a manner to be described below),
+		whereas the others do not.
+
+		.. note:: The last method will even when the parameter name clashes with a method of :class:`Parameters`, which you will be warned about when you define such a parameter. It will not be possible, however, to retrieve such a parameter using attribute notation later. Fortunately, "interpretation" makes no difference when retrieving parameters, and so the other methods will work as expected.
+
+		Let us begin with the properties that all of these methods share.
+
+		* Parameter names must start with a letter; and may contain any number of additional letters, numbers, and underscores.
+		* Parameter values may be:
+			- any numeric type (include :class:`complex`).
+			- a string that represents a symbolic expression.
+			- a function with zero or more arguments, each of which being the name of a parameter.
+			- a two-tuple of any of the above types with a valid unit (see the Supported Units section of the Parameters documentation for supported SI units in a :class:`SIUnitDispenser`).
+			- a :class:`Quantity` instance
+
+		Here are some examples of valid parameter-value combinations:
+
+		>>> p.x=1.42
+		>>> p.alpha = 'sin(x)'
+		>>> p.beta2 = lambda x, alpha: math.sqrt(x+alpha)
+		>>> p.y = (32.1, '{mu}eV')
+		>>> p.q_z_ = ('x+2*beta2', 'ms')
 
 		When a unit is not specified, the parameter is assumed to be a
 		scaled version of the parameter. If the unit has never been set,
-		then a 'constant' unit is assumed; otherwise the older unit is used.
-		>>> p(x=1)
-
-		If the parameter name does not clash with a method of parameters,
-		you can use the shorthand:
-		>>> p.x = (1,'ms')
+		then a 'constant' unit is assumed; otherwise the older unit is assumed.
 
 		You can specify the units of a parameter, without specifying its
 		value:
+
 		>>> p & {'x':'ms'}
-		Note that if you do this when the parameter has already been set
-		that the parameter will have its units changed, but its value
-		will remain unchanged. Use this carefully.
 
-		Set a parameter 'y' that depends on the current scaled value of
-		'x' (if default_scale = True)
-		>>> p(y=lambda x: x**2)
-		OR
-		>>> p(y= <function with argument 'x'>)
+		.. note:: If you do this when the parameter has already been set, the parameter value will be adjusted to maintain a constant physical value. If a parameter has been set, and you try to change the units to another which is dimensionally incompatible (e.g. 'm' -> 'ms'), this will result in a :python:`UnitConversionError` being raised. You should first ask the :class:`Parameters` instance to "forget" this value, as described shortly.
 
-		If one wanted to use the united Quantity instead, they would use:
-		>>> p(y=lambda _x: _x**2)
-		Which would keep track of the units.
+		Defining multiple parameters at once is easy with the first two methods:
 
-		We can set 'y' to have units of 'ms^2', even when using the scaled values.
-		>>> p & {'y':'ms^2'}
+		>>> p(x=1,y=(2,'s'),z=lambda x,y: x+y)
+		>>> p << {'x':1,'y':(2,'s'),'z': lambda x,y: x+y }
 
-		One can also set a parameter to *always* depend on another parameter.
-		>>> p << {'y':lambda x: x**2}
-		Now, whenever x is changed, y will change also.
+		Note, though, that these two statements are **not** equivalent, as described
+		in the next section.
 
-		If you want 'x' to change with 'y', then you simply set 'y' as
-		an invertable function of 'x'. If the argument 'y' is specified,
-		the function should return the value of 'x'. e.g.
-		>>> p << { 'y': lambda x,y=None: x**2 if y is None else math.sqrt(y) }
+	Interpreted vs Non-interpreted Parameter Definition:
+		In the previous section, a distinction was made between methods of
+		defining parameters that first "interpret" the value and those that do
+		not. In particular: :python:`p(?=...)` and :python:`p[?] = ...` were said
+		to first interpret the value, whereas :python:`p << {?: ...}` and
+		:python:`p.? = ...` did not.
 
-		Such relationships can be chained. For instance, we could set an invertible
-		function for 'z' as a function of 'x' and 'y'. Note that when an invertible
-		function is inverted, it should return a tuple of variables in the
-		same order as the function declaration.
-		>>> p << { 'z': lambda x,y,z=None: x**2+y if z is None else (1,2) }
+		The difference amounts to whether or not functions are first evaluated
+		before being saved as a parameter value. For example:
 
-		You can also use the shorthand:
-		>>> p.z = lambda x,y,z=None: x**2+y if z is None else (1,2)
-		Note that setting attributes in this way keeps the functional dependence.
+		>>> p['x'] = lambda y: y**2 # Evaluated immediately
+		>>> p.is_function('y')
+		False
+		>>> p.x = lambda y: y**2 # Evaluated only when x is determined
+		>>> p.is_function('x')
+		True
 
-		We can then update z in the normal way:
-		>>> p(z=1)
-		This results in Parameters trying to resolve y=2 => x= sqrt(2) and
-		x=1. This will return a ValueError with a description of the problem.
-		However, this allows one to have an intricate variable structure.
+		Succinctly, interpreted parameter definitions set the parameter to the value
+		of the function at time of definition; whereas non-interpreted parameter
+		definitions cause the parameter to be evaluated in whatever context it finds
+		itself in the future.
 
-		If a parameter has a functional dependence, but is not invertible,
-		and it is updated as above, an error will be raised. However, if
-		the is being specified only as an override, it is maintained, but
-		may result in the parameters being inconsistent.
+	Parameter Extraction:
+		Just as there are several ways to define parameters, there are several
+		ways to extract them. They are:
 
-		To force parameters to be overridden, whether or not the parameter is
-		a function, use the left shift operator:
-		>>> p << {'z': (1,'ms')}
+		>>> p('x')
+		>>> p.x
+		>>> p['x']
 
-	## Removing Parameters
+		Each of the above returns either a single non-dimensional value or a
+		:class:`Quantity` depending upon whether default_scaled was passed as True
+		or False respectively in the parameter instance. The first of these allows for multiple
+		parameters to be extracted, whereas the second two do not. Additionally,
+		the first of these also allows for temporarily overriding the parameter
+		context. For example:
 
+		>>> p('x','y',z=(10,'ms'))
+
+		The above example returns a dictionary which contains a mapping from 'x'
+		and 'y' to their respective values; evaluated in the context of 'z' being
+		overridden temporarily with a value of 10 ms. At the end of this evaluation,
+		'z' maintains whatever value it had before. This only affects the value
+		of requested variables if it is a function of those variables.
+
+		.. note:: As in most functions in this class that accept multiple parameter arguments, a dictionary is returned if there are two or more parameters; otherwise the value of the single requested parameter is returned. You can force a dictionary response by encapsulating this parameter in a list. For example::
+
+			>>> p(['x'])
+
+		As mentioned, if the :class:`Parameter` instance was instantiated with
+		:python:`default_scaled` set to :python:`True`, then all of the parameters
+		requested by name will return a non-dimensionalised number; or if it was
+		:python:`False`, a :class:`Quantity` object. To invert this default, simply
+		add a '_' to the variable name. For example:
+
+		>>> p('_x')
+		>>> p._x
+		>>> p['_x']
+
+		As a shorthand for extracting multiple parameters, you can use the following
+		special method:
+
+		>>> p._('x','y',z=(10,'ms'))
+
+		This is identical in function to:
+
+		>>> p('_x','_y',z=(10,'ms'))
+
+		Although redundant, this special method can also set parameter values just
+		as calling the :class:`Parameter` instance does:
+
+		>>> p._(x=10)
+
+	Parameter Interdependencies:
+		As already discussed, parameters within a :class:`Parameters` instance
+		can depend on values of other parameters by setting their value to be a
+		function or symbolic expression. In this section we describe how to best
+		take advantage of this functionality.
+
+		Firstly, the function may either be a full function, method or lambda expression.
+
+		Secondly, the function must take as arguments only parameter names which
+		exist in the :class:`Parameters` instance at the time that it is executed.
+		Thus, "non-interpreted" parameter definitions can be set to include variables
+		that are only defined at runtime; such as the current time in a
+		numerical integration. Beyond that, there are no restrictions, except that
+		the function must return a value that is understood (this can both a numeric
+		quantity, or a united quantity tuple, or a :class:`Quantity` object).
+
+		Thirdly, by using a variable name prepended with an underscore in the
+		function declaration, you can access both non-dimensional and dimensional
+		quantities in your function.
+
+		Fourthly, you can cause your function to be invertible by adding a reference
+		to the variable name you are defining to the end of the list of function
+		arguments, with a default value. When that variable is specified, you should
+		return an ordered list/tuple of updated parameters for the other parameters in the
+		function declaration. If there is only one other, it is sufficient to
+		simply return it. For example:
+
+		>>> p.x = lambda y,x=None: y**2 if x is None else x**0.5
+
+		>>> p << {'y': 1, 'z': 1, 'x': lambda y,z,x=None: y+z if x is None else [y,x-y]}
+		>>> p('x')
+		2.0
+		>>> p('z',x=10)
+		9.0
+
+		Lastly, parameter relationships can chained and as deep as you like.
+		For example, x could depend on y, which could depend on z, and so on.
+		The :class:`Parameters` will ensure that there are no dependency loops.
+
+	Removing Parameters:
 		To remove a parameter, simply use the forget method:
+
 		>>> p.forget('x','y',...)
 
-	## Parameter Units and Scaling
+		As many parameters as you like can be specified in one function call.
 
-		You can add your own custom units by adding them directly to the
-		unit dispenser used to set up the Parameters instance; or by
-		adding them to the parameters object like:
-		>>> p.unit_add(names='testunit',abbr='TU',rel=1e7,prefixable=False,dimensions={'mass':1,'length':1})
-		For a description of what the various keys mean, see the documentation
-		for Unit.
+	Parameter Units and Scaling:
+		Custom units can be added by using the :func:`unit_add` method, and
+		scaling used in the non-dimensionalisation process can be extracted
+		for a given unit using the :func:`unit_scaling` method.
 
-		It is sometimes useful to have a scaled representation of the
-		parameters that is different from the standard SI values. You can set
-		a new basis unit for any dimension: i.e.  For the below, all scaled 'length'
-		parameters will be scaled by 0.5 compared to the former basis of (1,'m').
-		>>> p.scaling(length=(2,'m'),...)
+		You can customise the scaling used in the non-dimensionalisation process
+		by changing the scaling of the various different dimensions using
+		the :func:`scaling` method. By default, units are scaled relative
+		to the SI fundamental units. The current scaling for a dimension
+		can also be extracted using this function.
 
-		You can retrieve the current scaling for any dimension using:
-		>>> p.scaling('length','time',...)
+	Unit Conversion:
+		Please see the documentation for the :func:`convert` method.
 
-		To view the cumulative scaling for any unit, you can use:
-		>>> p.unit_scaling('J','kg',...)
+	Parameter Bounds:
+		Please see the documentation for the :func:`bounds` and :func:`set_bounds`
+		methods.
 
-	## Unit Conversion
+	Parameter Ranges:
+		It is often useful to iterate over a range of parameter values. You can
+		generate such ranges using the :func:`range` method. You can also have
+		the iteration process handled for you, as documented in the
+		:func:`range_iterator` method.
 
-		It is useful to have a mechanism that scales all physical units
-		in the same way as your parameters. Parameters instances allow
-		you to convert physical units to and from the internal representation
-		used by the Parameters object.
+	Physical Constants:
+		If :python:`constants` was :python:`True` when the :class:`Parameters`
+		instance was initialised, and a :class:`SIUnitDispenser` is being used
+		(as it is by default), then the parameter list is prepopulated with a list
+		of physical constants. Please see the "Physical Constants" section of the
+		*python-parameters* documentation.
 
-		For example:
-		>>> p.convert( 1.0 , input='ms')
-		converts 1 ms to the internal scaled representation of that parameter.
-		Whereas:
-		>>> p.convert( 1.0 , output='ms')
-		converts a scaled parameter with dimension of 'time' to a Quantity
-		with units of 'ms'.
-		>>> p.convert( 1.0 , output='ms', value=True)
-		converts a scaled parameter with dimension of time to number corresponding
-		to the value of Quantity with units of 'ms'.
+	Loading and Saving Parameter Sets:
+		To load a parameter set into a Parameters instance, use the classmethod
+		:func:`load`. See its documentation for more information.
 
-	## Parameter Bounding
+		To save your existing parameters, use:
 
-		Sometimes it is necessary to be sure that a parameter is within
-		certain bounds. Parameter objects can ensure this for you, with
-		minimal overhead in performance. To set a bound you can use:
-		>>> p['x'] = (0,100)
-		If one of the extremum values is None, it is set to -infinity or
-		+infinity, depending upon whether it is the upper or lower bound.
-		If a disjointed bound is necessary, you can use:
-		>>> p['x'] = [ (None,10), (15,None) ]
+		p >> "filename.py"
 
-		If you need more power over the bounds, you can use the
-		set_bounds method. In addition to the bounds described above, it
-		accepts three keyword arguments: error, clip and inclusive.
-			error (True) : This keyword determines whether a parameter
-				found to be outside this bound should trigger an error;
-				or if clip is True, whether a warning should be generated.
-			clip (False) : If true, the parameter will be clipped to
-				the nearest bound edge (assumes inclusive is True).
-				If error is true, a warning will be generated.
-			inclusive (True) : Whether the upper and lower bounds are
-				to be included in the range.
-		>>> p.set_bounds( {'x':(0,100)}, error=True, clip=True, inclusive=True )
+		Note that parameters that are dependent on other parameters will not survive
+		this transition, and will be saved as static values.
 
-	## Parameter Ranges
-
-		It is often the case that one would like to iterate over various
-		parameter ranges, or to investigate how one parameter changes
-		relative to another. The Parameters object makes this easy with
-		the 'range' method. The range method has similar syntax to the
-		parameter extraction method; but is kept separate for clarity and
-		efficiency.
-
-		>>> p << {'y':lamdba x:x**2}
-		>>> p.range( 'y', x = [0,1,2,3] )
-		This will return: [0,1.,4.,9.].
-
-		Arrays may be input as lists or numpy ndarrays; and returned arrays
-		are typically numpy arrays.
-
-		The values for parameter overrides can also be provided in a more
-		abstract notation; such that the range will be generated when the
-		function is called. Parameters accepts ranges in the following forms:
-		 - (<start>,<stop>,<count>) ; which will generate a linear array
-		   from <start> to <stop> with <count> values.
-		 - (<start>,<stop>,<count>,<sampler>) ; which is as above, but where
-		   the <sampler> is expected to generate the array. <sampler> can
-		   be a string (either 'linear','log','invlog' for linear, logarithmic,
-		   or inverse logarithmic distributions respectively); or a function
-		   which takes arguments <start>,<stop>,<count> .
-
-		>>> p.range( 'y', x = (0,10,2) )
-		returns: [0.,100.]
-
-		It is also possible to determine multiple parameters at once.
-		>>> p.range( 'x', 'y', x=(0,10,2) )
-		returns: {'x':[0.,10.], 'y':[0.,100.]}
-
-		If multiple overrides are provided, they must either be constant
-		or have the same length.
-		>>> p.range( 'x', x=(0,10,2), z=1 )
-		is OKAY
-		>>> p.range( 'x', x=(0,10,2), z=[1,2,3] )
-		is NOT okay.
-
-	## Physical Constants
-
-		To make life easier, Parameters instances also broadcasts the physical
-		constants defined in "physical_constants.py" when using an SIUnitDispenser
-		if constants is set to 'True'. These constants function just as
-		any other parameter, and can be overriden. For example:
-		>>> p.c_hbar
-
-	## Loading and Saving
-
-		To load a parameter set into a Parameters instance, use the classmethod:
-		>>> p = Parameters.load( "filename.py" )
-		Note that parameters defined as functions will be imported as functions.
-
-		To see the format of a parameters instance, or to save your existing parameters,
-		use:
-		>>> p >> "filename.py"
-		Note that functional parameters will only be saved as static values.
-
-	## Temporary changes
-
+	Parameter Contexts:
 		Parameters objects support Python's "with" syntax. Upon exiting a "with"
-		environment, any changes made will be reset to before entering the environment.
+		environment, any changes made will be reset to before re-entering the
+		parent environment.
 
 		>>> with p:
 		>>> 	p(x=1)
@@ -302,7 +320,27 @@ class Parameters(object):
 
 	def unit_add(self, *args, **kwargs):
 		'''
-		This adds a unit to a custom UnitDispenser. See UnitDispenser.add for more info.
+		unit_add(self, *args, **kwargs)
+
+		:param args: A length 1 sequence of Unit objects, or args to pass to the :class:`Unit` constructor.
+		:type args: tuple of mixed type
+		:param kwargs: Keyword arguments to pass to the :class:`Unit` constructor.
+		:type kwargs: dict of mixed type
+
+		This method allows you to add custom units to the :class:`UnitDispenser` object
+		which generates :class:`Units` objects on demand. These additional units
+		can override existing units, or add entirely new units. The :python:`args`
+		and :python:`kwargs` passed to this function are essentially passed directly
+		to the :class:`Unit` constructor:
+
+		>>> Unit(*args, **kwargs)
+
+		Unless:
+		- :python:`args` contains a single :class:`Unit` instance, it is directly added the the :class:`UnitDispenser` used by :class:`Parameters`.
+		- :python:`args` contains a single :class:`dict` instance, in which case the unit :python:`Unit(**args[0])` is add to the :class:`UnitDispenser`.
+
+		For more information regarding the parameters which can passed to the :class:`Unit`
+		constructor, see documentation for :class:`Unit`.
 		'''
 		if len(args) == 1:
 			if isinstance(args[0], Unit):
@@ -318,8 +356,36 @@ class Parameters(object):
 
 	def scaling(self, *args, **kwargs):
 		'''
-		Sets the scaling of a particular dimension. For example:
-		p.scaling(length='m')
+		scaling(self, *args, **kwargs)
+
+		:param args: A (possibly empty) sequence of dimensions to query.
+		:type args: tuple of str
+		:param kwargs: A (possibly empty) specification of scales for various dimensions.
+		:type kwargs: dict of str/Units
+
+		:returns: The scaling associated with dimensions listed in :python:`args`.
+
+		It is usually the case in numerical applications that one is only interested
+		in dealing with non-dimensionalised quantities, rather than quantities
+		with units. By default, Parameters instances will return non-dimensional
+		quantities unless negated by the underscore (as described elsewhere).
+		This method sets the reference scales which determine the
+		non-dimensionalisation. By default, the SI fundamental units are used,
+		as defined in :class:`SIUnitDispenser`.
+
+		For example:
+
+		>>> p.scaling(length='m') # This will set the base length unit to 'm'
+		>>> p( (1,'m') )
+		1.
+		>>> p.scaling(time='ns') # This will set base time unit to 'ns'
+		>>> p( (1,'s') )
+		1e9
+
+		Obviously, this does not affect units returned in united form.
+
+		>>> p._( (1,'s') )
+		1 s
 		'''
 		self.__scaling_cache = {}
 
@@ -343,8 +409,24 @@ class Parameters(object):
 
 	def unit_scaling(self, *params):
 		'''
-		Sets the scaling of a particular unit. Care should be taken as this could
-		result in inconsistent scalings.
+		unit_scaling(self, *params)
+
+		:param params: A sequence of params for which to query internal non-dimensionalisation scaling.
+		:type params: tuple
+
+		:returns: A dictionary of unit scalings, or, if :python:`params` is of length 1, a single numeric scaling factor.
+
+		This method returns the internal non-dimensionalisation factor used to
+		scale united values. For example, using the default :class:`SIUnitDispenser`:
+
+		>>> p.unit_scaling('m')
+		1.0
+		>>> p.unit_scaling('km')
+		0.001
+		>>> p.unit_scaling('eV')
+		6.241509647120417e+18
+
+		The results should be interpreted as: non-dim_value = united_value / unit_scaling .
 		'''
 		r = {}
 		for param in params:
@@ -447,7 +529,7 @@ class Parameters(object):
 
 	############# PARAMETER RETRIEVAL ##########################################
 
-	def __get(self, args, kwargs={}):
+	def __get(self, args, kwargs={}, default_scaled=None):
 		'''
 		Retrieve the parameters specified in args, with temporary values overriding
 		defaults as in kwargs. Parameters are returned as Quantity's.
@@ -457,7 +539,7 @@ class Parameters(object):
 		arg_islist = type(args[0]) == list
 
 		if len(args) == 1 and not arg_islist:
-			result = self.__get_param(args[0], kwargs)
+			result = self.__get_param(args[0], kwargs, default_scaled)
 			if self.__parameters_bounds is not None:
 				kwargs[args[0]] = result
 				self.__forward_check_bounds(args, kwargs)
@@ -466,7 +548,7 @@ class Parameters(object):
 		if arg_islist:
 			args = args[0]
 
-		results = self.__get_params(args, kwargs)
+		results = self.__get_params(args, kwargs, default_scaled)
 		kwargs.update(results)
 		if self.__parameters_bounds is not None:
 			kwargs.update(results)
@@ -494,13 +576,13 @@ class Parameters(object):
 						else:
 							warnings.warn(errors.ParameterBoundsUncheckedWarning("Parameter '%s' might be outside bounds. Insufficient parameters passed to check." % pam))
 
-	def __get_params(self, args, kwargs={}):
+	def __get_params(self, args, kwargs={}, default_scaled=None):
 		rv = {}
 		for arg in args:
-			rv[self.__get_pam_name(arg)] = self.__get_param(arg, kwargs)
+			rv[self.__get_pam_name(arg)] = self.__get_param(arg, kwargs, default_scaled)
 		return rv
 
-	def __get_param(self, arg, kwargs={}):
+	def __get_param(self, arg, kwargs={}, default_scaled=None):
 		'''
 		Returns the value of a param `arg` with its dependent variables overriden
 		as in `kwargs`. If `arg` is instead a function, a string, or a Quantity, action is taken to
@@ -514,7 +596,7 @@ class Parameters(object):
 		if not isinstance(arg, str) or (pam_name not in kwargs and pam_name not in self.__parameters):
 			return self.__eval(arg, kwargs)
 		else:
-			scaled = self.__default_scaled
+			scaled = default_scaled if default_scaled is not None else self.__default_scaled
 			if arg[:1] == "_":  # .startswith("_"):
 				arg = arg[1:]
 				scaled = not scaled
@@ -551,6 +633,9 @@ class Parameters(object):
 			restrict = kwargs.keys()
 
 		if len(restrict) == 0:
+			return
+
+		def check_overspecified(param, kwargs, vals):
 			return
 
 		def pam_ordering(dependencies, pam_order=[]):
@@ -614,7 +699,7 @@ class Parameters(object):
 				try:
 					vals = self.__eval_function(pam, kwargs)
 					for key in vals:
-						if key in kwargs and vals[key] != kwargs[key] or key in new and vals[key] != new[key]:
+						if key in kwargs and self.__get_quantity(vals[key],scaled=True) != self.__get_quantity(kwargs[key],scaled=True) or key in new and self.__get_quantity(vals[key],scaled=True) != self.__get_quantity(new[key],scaled=True):
 							raise errors.ParameterOverSpecifiedError("Parameter %s is overspecified, with contradictory values. (%s vs. %s)" % (key,vals[key],kwargs[key] if key in kwargs else new[key]) )
 					new.update(vals)
 				except errors.ParameterNotInvertableError as e:
@@ -672,7 +757,6 @@ class Parameters(object):
 
 			if pam not in (param, "_%s" % param):
 				inverse[pam] = self.__get_quantity(r[i], param=pam)
-
 		return inverse
 
 	def __cache_func_handler(self, param, value=None, params=None):
@@ -693,7 +777,23 @@ class Parameters(object):
 
 	def cache(self, **kwargs):
 		'''
-		Allow enabling and disabling of cache for parameter functions.
+		cache(self, **kwargs)
+
+		:param kwargs: Dictionary of boolean values
+		:type kwargs: :class:`dict`
+
+		A utility function to toggle caching of particular parameters. When
+		cache is enabled, if a parameter function has been called before with the
+		same parameter values, then it returns the old value. Note that only
+		one set of parameters is remembered, and so this caching is designed
+		only for situations where the parameter is not expected to change at
+		every call.
+
+		Example:
+
+		>>> p.cache(x=True, y=False)
+
+		This will enable caching for *x* and disable it for *y*.
 		'''
 		for kwarg, cache_on in kwargs.items():
 			if kwarg in self.__cache_funcs and not cache_on:
@@ -876,16 +976,25 @@ class Parameters(object):
 			del self.__parameters_spec[param]
 
 	def forget(self, *params):
+		'''
+		forget(self, *params)
+
+		:param params: List of parameter names to forget.
+		:type params: :class:`tuple` of :class:`str`
+
+		:returns: A reference to the parent :class:`Parameters` instance.
+
+		This is the way to remove parameters that are stored inside a :class:`Parameters`
+		instance.
+
+		Example:
+
+		>>> p.forget('x','y','z')
+
+		This removes parameters *x*, *y* and *z* from the parameter list.
+		'''
 		for param in params:
 			self.__remove(param)
-		return self
-
-	def __lshift__(self, other):
-
-		if not isinstance(other, dict):
-			raise errors.ParametersException("The left shift operator sets parameter values without interpretation; such as functions. It accepts a dictionary of parameter values.")
-
-		self.__set(other)
 		return self
 
 	def __sympy_to_function(self, expr):
@@ -951,17 +1060,63 @@ class Parameters(object):
 
 	################ EXPOSE PARAMETERS #########################################
 	def __call__(self, *args, **kwargs):
-
 		if args:
 			return self.__get(args, kwargs)
 
 		self.__update(kwargs)
 		return self
 
+	def _(self, *args, **kwargs):
+		if args:
+			return self.__get(args, kwargs, not self.__default_scaled)
+
+		self.__update(kwargs)
+		return self
+
+	def __getattr__(self, name):
+		if name[:2] == "__" or name[:11] == "_Parameters":
+			raise AttributeError
+		return self.__get_param(name)
+
 	def __setattr__(self, attr, value):
 		if attr.startswith('__') or attr.startswith('_Parameters'):
 			return super(Parameters, self).__setattr__(attr, value)
 		return self.__set({attr: value})
+
+	def __lshift__(self, other):
+
+		if not isinstance(other, dict):
+			raise errors.ParametersException("The left shift operator sets parameter values without interpretation; such as functions. It accepts a dictionary of parameter values.")
+
+		self.__set(other)
+		return self
+
+	def __dir__(self):
+		res = dir(type(self)) + list(self.__dict__.keys())
+		res.extend(self.__parameters.keys())
+		return res
+
+	################# Other Magic ##############################################
+	def __repr__(self):
+		return "< Parameters with %d definitions >" % len(self.__parameters)
+
+	def __len__(self):
+		return len(self.__parameters)
+
+	def __iter__(self):
+		params = sorted(self.__parameters.keys())
+		for param in params:
+			yield param
+
+	def __getitem__(self, key):
+		if type(key) == int:
+			return sorted(self.__parameters.keys())[key]
+		return self.__get(key)
+
+	def __setitem__(self, key, value):
+		self.__update({key: value})
+
+	################# Show parameters ########################################
 
 	def __table(self, table):
 
@@ -983,6 +1138,17 @@ class Parameters(object):
 		return '\n'.join(output)
 
 	def show(self):
+		'''
+		show(self)
+
+		This method simply prints a formatted table of parameters stored in the
+		:class:`Parameters` instance. It shows the parameter and its dependencies,
+		its united value, and its non-dimensionalised value.
+
+		To use it, simply run:
+
+		>>> p.show()
+		'''
 		if len(self.__parameters) == 0:
 			return 'No parameters have been specified.'
 
@@ -1016,22 +1182,86 @@ class Parameters(object):
 
 		print self.__table(parameters)
 
-	def __repr__(self):
-		return "< Parameters with %d definitions >" % len(self.__parameters)
-
-	def __dir__(self):
-		res = dir(type(self)) + list(self.__dict__.keys())
-		res.extend(self.__parameters.keys())
-		return res
-
-	def __getattr__(self, name):
-		if name[:2] == "__" or name[:11] == "_Parameters":
-			raise AttributeError
-		return self.__get_param(name)
-
 	################## PARAMETER BOUNDS ####################################
 
+	def bounds(self, *params, **bounds):
+		'''
+		bounds(self, *params, **bounds)
+
+		:param params: Sequence of parameter names for which to query the bounds.
+		:type param: tuple
+		:param bounds: Dictionary specifying parameter bounds to be applied.
+		:type bounds: dict
+
+		:returns: Dictionary of :class:`Bound` objects, or, if only one parameter is specified, then just one :class:`Bound` object. If no bounds exist for a parameter, :python:`None` is returned.
+
+		This method allows you to simply query and set bounds on parameters. For
+		more advanced bounds setting, you should use :func:`set_bounds`. For each
+		parameter, valid bounds are specified by a two-tuple, or a list of two-tuples.
+		If one of the extremum values is None, it is set to -infinity or +infinity, depending upon
+		whether it is the upper or lower bound.
+
+		For example:
+
+		>>> p.bounds(x=(0,100)) # Bounds x between 0 and 100 inclusive.
+
+		>>> p.bounds(y=[(0,50),(150,200)]) # Bounds y between 0-50 or between 150-200.
+
+		>>> p.bounds('x') # Returns the Bounds object associated with x
+
+		>>> p.bounds('x',x=(0,None)) # Sets the bounds on x to be [0,+inf], and then returns the :class:`Bounds` object associated with x.
+
+		Note that multiple parameters can be queried and set at the same time.
+
+		.. warning:: Using parameter bounds greatly increases the amount of computation done during parameter retrieval. It is recommended that you do not use parameter bounds in contexts which require minimal runtime, such as numerical integration.
+		'''
+		self.set_bounds(bounds)
+
+		if len(params) > 0:
+			use_dict = type(params[0]) == list
+			if use_dict:
+				params = params[0]
+
+			bounds = {}
+			for param in params:
+				bounds[param] = self.__parameters_bounds[param].bounds if param in self.__parameters_bounds else None
+			if not use_dict and len(bounds) == 1:
+				return bounds[bounds.keys()[0]]
+			return bounds
+
 	def set_bounds(self, bounds_dict, error=True, clip=False, inclusive=True):
+		'''
+		set_bounds(self, bounds_dict, error=True, clip=False, inclusive=True)
+
+		:param bounds_dict: A dictionary with parameters as keys with a valid bounding specification (described below).
+		:type bounds_dict: dict
+		:param error: :python:`True` if a parameter found to be outside specified bounds throw an error; or if :python:`clip` is :python:`True`, whether a warning should be generated. :python:`False` otherwise.
+		:type error: bool
+		:param clip: :python:`True` if the relevant parameter should be clipped to the nearest bound edge (assumes inclusive is True). :python:`False` otherwise.
+		:type clip: bool
+		:param inclusive: :python:`True` if the upper and lower bounds should be included in range. :python:`False` otherwise.
+		:type inclusive: bool
+
+		This method provides you with greater control than the shorthand methods
+		described in the class documentation. As a reminder the shorthand methods
+		looked like:
+
+		>>> p[’x’] = (0,100)
+
+		If one of the extremum values is None, it is set to -infinity or +infinity, depending upon
+		whether it is the upper or lower bound. If a disjointed bound is necessary, you can use:
+
+		>>> p[’x’] = [ (None,10), (15,None) ]
+
+		This method is much more flexible; for example:
+
+		>>> p.set_bounds( {'x':(0,100)}, error=True, clip=True, inclusive=True )
+
+		Will warp 'x' to the closer of 0 or 100 if outside of the range [0,100],
+		reporting a warning in the process.
+
+		.. warning:: Using parameter bounds greatly increases the amount of computation done during parameter retrieval. It is recommended that you do not use parameter bounds in contexts which require minimal runtime, such as numerical integration.
+		'''
 		if not isinstance(bounds_dict, dict):
 			raise ValueError("Bounds must be specified as a dictionary. Provided with: '%s'." % (bounds_dict))
 		for key, bounds in bounds_dict.items():
@@ -1092,18 +1322,60 @@ class Parameters(object):
 		warnings.warn(errors.ParameterOutsideBoundsWarning("Value %s for '%s' outside of bounds %s. Using value anyway." % (value, bounds.param, bounds.bounds)))
 		return value
 
-	def __getitem__(self, key):
-		try:
-			return self.__parameters_bounds[key].bounds
-		except:
-			return None
-
-	def __setitem__(self, key, value):
-		self.set_bounds({key: value})
-
 	################## RANGE UTILITY #######################################
 
 	def range(self, *args, **ranges):
+		'''
+		range(self, *args, **ranges)
+
+		:param args: A sequence of parameters (or parameter expressions).
+		:type args: tuple
+		:param ranges: A dictionary of overrides and range specifications.
+		:type ranges: dict
+
+		:returns: A sequence of parameter values if there is a single parameter requested and it is not enclosed in a list, and dictionary of values otherwise.
+
+		This method provides a solution to the common problem of iterating over
+		parameter ranges, or investigating how one parameter changes as a function
+		of another. It has a similar syntax for parameter extraction by calling
+		the :class:`Parameter` instance, and indeed provides a superset of the
+		functionality. It is kept separate for peformance considerations.
+
+		One can think about the syntax of this method as overriding the parameter
+		value with a sequence of values, rather than a specific value. For example:
+
+		>>> p << {'y':lamdba x:x**2}
+		>>> p.range( 'y', x = [0,1,2,3] )
+		[0,1.,4.,9.]
+
+		In this simple example, we see that we can iterate over a provided array of
+		values. Arrays may be input as lists or numpy ndarrays; and returned arrays are typically numpy arrays.
+
+		The values for parameter overrides can also be provided in a more abstract notation; such that the
+		range will be generated when the function is called. Parameters accepts ranges in the following
+		forms:
+
+			- (*<start>*, *<stop>*, *<count>*) : which will generate a linear array from <start> to <stop> with <count> values.
+			- (*<start>*, *<stop>*, *<count>*, ..., *<sampler>*) : which is as above, but where the <sampler> is expected to generate the array. <sampler> can be a string (either ‘linear’,’log’,’invlog’ for linear, logarithmic, or inverse logarithmic distributions respectively); or a function which takes arguments <start>, <stop>, <count> and any other arguments from "...". Note that when you specify your own function, the <start>, <stop> and <count> variables need not be interpreted as their name suggests.
+
+		Example:
+
+		>>> p.range( 'y', x = (0,10,2) )
+		[0.,100.]
+
+		It is also possible to determine multiple parameters at once.
+
+		>>> p.range( ‘x’, ‘y’, x=(0,10,2) )
+		{'x':[0.,10.], 'y':[0.,100.]}
+
+		If multiple overrides are provided, they must either be constant or have the same length.
+
+		>>> p.range('x', x=(0,10,2), z=1 ) # This is OKAY
+
+		>>> p.range('x', x=(0,10,2), z=[3,4]) # This is also OKAY
+
+		>>> p.range( 'x', x=(0,10,2), z=[1,2,3] ) # This is NOT okay.
+		'''
 
 		if len(args) == 0:
 			raise ValueError('Please specify output variables from ranges.')
@@ -1206,11 +1478,51 @@ class Parameters(object):
 		return pam_range
 
 	################## Function iteration ##################################
-	def ranges_iterator(self, ranges):
-		return RangesIterator(ranges=ranges, parameters=self)
+	def ranges_iterator(self, ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None):
+		'''
+		ranges_iterator(self, ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None)
+
+		This method is shorthand for:
+
+		>>> RangesIterator(parameters=self, ranges=ranges, params=params, masks=masks, \
+				function=function, function_kwargs=function_kwargs, nprocs=nprocs, ranges_eval=ranges_eval)
+
+		The :class:`RangesIterator` object allows you to iterate over nested parameter
+		ranges, which is useful when you want to sweep out a multidimensional parameter
+		space; for example, when you want to make a 2D plot of some function. In
+		some sense, this is a generalisation of the Python :func:`map` function.
+
+		For more information, please refer to the :class:`RangesIterator` documentation.
+		'''
+		return RangesIterator(parameters=self, ranges=ranges, params=params, masks=masks, function=function, function_kwargs=function_kwargs, nprocs=nprocs, ranges_eval=ranges_eval)
 
 	################## CONVERT UTILITY #####################################
 	def asvalue(self, **kwargs):
+		'''
+		asvalue(self, **kwargs)
+
+		:param kwargs: A dictionary of parameter values
+		:returns: Number (normally float, but could be complex, etc)
+
+		A utility function to return what the united value of a parameter would
+		be if it were overridden with *kwargs*. It is the logical partner
+		of *asscaled(\*\*kwargs)*. For example:
+
+		>>> p.asvalue(x=(1, 'nm'))
+		1
+
+		If no units are passed, then inout value is assumed to be non-dimensional,
+		and units are lifted from the underlying parameter. For example:
+
+		>>> p.x = (1,'ms')
+		>>> p.asvalue(x=1)
+		1000
+
+		If multiple parameter values are specified, a dictionary of values is
+		returned:
+		>>> p.asvalue(x=1, y=2)
+		{'x': 1000, 'y': 2}
+		'''
 		d = {}
 		for param, value in kwargs.items():
 			d[param] = self.convert(value, output=self.units(param), value=True)
@@ -1219,6 +1531,26 @@ class Parameters(object):
 		return d
 
 	def asscaled(self, **kwargs):
+		'''
+		asscaled(self, **kwargs)
+
+		:param kwargs: A dictionary of parameter values
+		:returns: Number (normally float, but could be complex, etc)
+
+		A utility function to return what the scaled value of a parameter would
+		be if it were overridden with *kwargs*. It is the logical partner
+		of *asvalue(\*\*kwargs)*. For example:
+
+		>>> p.asscaled(x=(1, 'm'))
+		1
+
+		Note that this is equivalent to :python:`p.convert((1, 'm'))`.
+		If multiple parameter values are specified, a dictionary of values is
+		returned:
+
+		>>> p.asscaled(x=1, y=2)
+		{'x': 1, 'y': 2}
+		'''
 		d = {}
 		for param, value in kwargs.items():
 			d[param] = self.convert(value)
@@ -1227,12 +1559,54 @@ class Parameters(object):
 		return d
 
 	def units(self, *params):
-		l = list(self.__parameters_spec.get(param, None) for param in params)
-		if len(params) == 1:
-			return l[0]
-		return l
+		'''
+		units(self, *params)
+
+		:param params: A sequence of parameters for which to extract the default units.
+		:param type: tuple of str
+
+		:returns: An dictionary of :class:`Units`, or, if only one param has been
+		requested and not wrapped in a list, a single :class:`Units` object.
+
+		This method returns the default units associated with a particular parameter.
+		For example:
+
+		>>> p << {'x': (1,'ms'), 'y': (1,'m')}
+		>>> p.units('x')
+		ms
+		>>> p.units(['x'])
+		{'x': ms}
+		>>> p.units('x','y')
+		{'x': ms, 'y': m}
+		'''
+		use_dict = False
+		if len(params) == 1 and type(params[0]) == list:
+			params = params[0]
+			use_dict = True
+
+		units = {}
+		for param in params:
+			units[param] = self.__parameters_spec.get(param, None)
+
+		if len(params)==1 and not use_dict:
+			return units[units.keys()[0]]
+		return units
 
 	def convert(self, quantity, input=None, output=None, value=True):
+		'''
+		convert(self,quantity,input=None, ouput=None, value=True)
+
+		:param quantity: The quantity to be converted.
+		:type quantity: :class:`Quantity`, or any pythonic numeric type.
+		:param input: The units of the inputed quantity (ignored if input type is :class:`Quantity`).
+		:type input: :class:`None`, :class:`str`, or :class:`Units`
+		:param output: The units to convert toward.
+		:type output: :class:`None`, :class:`str`, or :class:`Units`
+		:param value: Whether the function should return only the value (rather than the full :class:`Quantity` object).
+		:type value: :class:`bool`
+
+		:returns: Pythonic number if :python:`value` is :python:`True`, and :class:`Quantity` otherwise.
+		'''
 
 		if isinstance(quantity, Quantity):
 			input = str(quantity.units)
@@ -1256,7 +1630,23 @@ class Parameters(object):
 
 	def optimise(self, param):
 		'''
-		Optimise the parameter query operator for fast operation times.
+		optimise(self, param)
+
+		:param param: Any parameter specification that is accepted by parameter retrieval.
+		:param type: object
+
+		:returns: A python function that can be passed to a Parameters instance for Parameters retrieval, or a string if the :class:`param` consisted of a single parameter name.
+		:raises: ExpressionOptimisationError
+
+		This method returns either a function or string depending on whether
+		the input :class:`param` consisted of more than a single parameter. For
+		symbolic expressions, this can greatly speed up parameter retrieval. A
+		similar mechanism is used internally to make parameter lookups fast.
+
+		For example:
+
+		>>> p.optimise('sin(x)*exp(-t)')
+		< function with arguments x and t >
 		'''
 
 		if param is None or isinstance(param, types.FunctionType) or isinstance(param, str) and self.__is_valid_param(param):
@@ -1269,9 +1659,30 @@ class Parameters(object):
 
 	def is_resolvable(self, *args, **params):
 		'''
-		Returns True if the parameter can be successfully evaluated, and False otherwise. This method actually goes through
+		is_resolvable(self, *args, **params)
+
+		:param args: Sequence of parameter names.
+		:type args: tuple
+		:param params: Dictionary of parameter value overrides.
+		:type params: dict
+
+		:returns: :python:`True` if each of the requested parameters can be
+		successfully evaluated. :python:`False` otherwise.
+
+		This method actually goes through
 		the process of evaluating the parameter, so if you need its value, it is probably better to use a
 		try-except block in your code around the usual parameter extraction code.
+
+		Example:
+
+		>>> p.x = 1
+		>>> p.y = 'x*z'
+		>>> p.is_resolvable('x')
+		True
+		>>> p.is_resolvable('x','y')
+		False
+		>>> p.is_resolvable('x','y',z=1)
+		True
 		'''
 		try:
 			self(*args, **params)
@@ -1281,9 +1692,23 @@ class Parameters(object):
 
 	def is_function(self, param, **params):
 		'''
-		Returns True if the parameter depends upon other parameters; and False otherwise. This method accepts
-		also accepts strings (as representations of mathematical expressions). Note that this method does NOT
-		accept tuples.
+		is_function(self, param, **params)
+
+		:param param: Name of parameter
+		:type param: str
+		:param params: Dictionary of parameter value overrides.
+		:type params: dict
+
+		:returns: :python:`True` if specified parameter is a function. :python:`False` otherwise.
+
+		This method checks if a given parameter is a function, which usually
+		implies it is dependent on other parameters. For example:
+
+		>>> p.x = 3
+		>>> p.is_function('x')
+		False
+		>>> p.is_function('x',x='3*t')
+		True
 		'''
 		param_name = self.__get_pam_name(param)
 		param_val = None
@@ -1307,8 +1732,24 @@ class Parameters(object):
 
 	def is_constant(self, *args, **params):
 		'''
-		Returns True if the first parameter provided in the args list is independent of all subsequent ones, when evaluated using `params`. Returns False otherwise. Note
-		that this method does not accept parameters as part of a tuple.
+		is_constant(self, *args, **params)
+
+		:param args: Sequence of parameter names.
+		:type args: tuple
+		:param params: Dictionary of parameter value overrides.
+		:type params: dict
+
+		:returns: :python:`True` if first listed parameter is independent of all subsequent parameters. :python:`False` otherwise.
+
+		This method is useful for simplifying parameters in contexts where parameters
+		are going to be often polled, by checking to see if they can be statically
+		cached in your application. For example:
+
+		>>> p.x = "3*t"
+		>>> p.is_constant('x','t')
+		False
+		>>> p.is_constant('x','t',x=1)
+		True
 		'''
 		param, wrt = None, []
 		if len(args) == 0:
@@ -1366,6 +1807,26 @@ class Parameters(object):
 	################## PLOTTING INTROSPECTION ##############################
 
 	def plot(self, *params, **ranges):
+		'''
+		plot(self, *params, **ranges)
+
+		:param params: A sequence of parameter expressions to plot.
+		:type params: tuple
+		:param ranges: A dictionary of parameter ranges and overrides.
+		:type ranges: dict
+
+		If Matplotlib is installed, this method provides a simple way to debug
+		whether your parameter values are working as expected. The format of the
+		ranges can be anything accepted by :func:`range`, but must only have one
+		varying independent parameter.
+
+		For example:
+
+		>>> p.plot('x', x="sin(w*t)", w=2, t=(0,'2*3.142/w',50))
+
+		The above example will generate a sinusoidal curve *x* vs. *t* plot
+		at 50 equidistant intervals between 0 and the end of the first period.
+		'''
 		try:
 			import matplotlib.pyplot as plt
 		except:
@@ -1411,6 +1872,29 @@ class Parameters(object):
 
 	@classmethod
 	def load(cls, filename, **kwargs):
+		'''
+		load(cls, filename, **kwargs)
+
+		:param filename: Filename from which to load parameters.
+		:type filename: str
+		:param kwargs: Dictionary of arguments to pass to :class:`Parameters` constructor.
+		:type kwargs: dict
+
+		:returns: A new :class:`Parameters` instance preloaded with the configuration contained in :python:`filename`.
+
+		This is the method you should use to load a saved :class:`Parameters`
+		configuration. For example:
+
+		>>> p.load('params.py')
+
+		The file being loaded should be a valid Python file, with one or more of
+		the following variables available in the global namespace:
+			- :python:`parameters` : a dictionary of parameter values with names as keys.
+			- :python:`parameters_cache` : a dictionary of boolean values with names as keys (and where True indicates that the parameter should be cached, see :func:`cache`).
+			- :python:`parameters_units` : a dictionary of parameter units with names as keys (only necessary to specify units for parameters which do not have a value attached to them, but for which it is useful to have default units)
+			- :python:`dimension_scalings` : a dictionary of scalings with dimensions as keys (for valid scalings, see :func:`scaling`).
+			- :python:`units_custom` : a list of dictionaries which contain the kwargs necessary to construct the custom unit (seel :func:`add_unit`).
+		'''
 		profile = imp.load_source('profile', filename)
 
 		p = cls(**kwargs)
@@ -1474,6 +1958,31 @@ class Parameters(object):
 
 
 class Bounds(object):
+	'''
+	Bounds(param, units, bounds, error=True, clip=False, inclusive=True)
+
+	:param param: Name of param to which bound applies.
+	:type param: str
+	:param units: Units of parameter.
+	:type units: str or :class:`Units`
+	:param bounds: The bound specification. See :func:`Parameters.bounds`.
+	:type bounds: List of bounds.
+	:param error: A boolean flag named error.
+	:type error: bool
+	:param clip: A boolean flag named clip.
+	:type clip: bool
+	:param inclusive: A boolean flag named inclusive.
+	:type inclusive: bool
+
+	The :class:`Bounds` object is used by a :class:`Parameters` instance to store
+	the properties of a parameter bound. This is the object type returned by
+	:func:`Parameters.bounds`. The above parameters can be extracted using attributes
+	(if b is an instance of Bounds):
+
+	>>> b.param
+	>>> b.units
+	>>> ...
+	'''
 
 	def __init__(self, param, units, bounds, error=True, clip=False, inclusive=True):
 		self.param = param

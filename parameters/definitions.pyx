@@ -5,7 +5,20 @@ from .quantities import Quantity
 
 
 class SIUnitDispenser(UnitDispenser):
+	'''
+	A subclass of :class:`UnitDispenser` which prepopulates the unit dispenser
+	with SI units and some common other units. For a complete list of supported
+	units, please see the "Supported Units" chapter of the python-parameters
+	documentation.
+	'''
+
 	def init_prefixes(self):
+		'''
+		This method is called by the :class:`UnitDispenser` constructor, at which
+		point this method populates the dispenser object with the SI prefixes. See
+		the "Supported Units" chapter of the python-parameters documentation for
+		a list of supported prefixes.
+		'''
 		self._prefixes = [
 			("yotta", "Y", 1e24),
 			("zepto", "Z", 1e21),
@@ -26,6 +39,12 @@ class SIUnitDispenser(UnitDispenser):
 		]
 
 	def init_units(self):
+		'''
+		This method is called by the :class:`UnitDispenser` constructor, at which
+		point this method populates the dispenser object with the SI units (and some
+		other common units). See the "Supported Units" chapter of the 
+		python-parameters documentation for a list of supported units.
+		'''
 
 		# Fundamental SI units
 		self \
@@ -46,6 +65,7 @@ class SIUnitDispenser(UnitDispenser):
 			+ Unit("yard", "yd", 0.9144).set_dimensions(length=1) \
 			+ Unit("foot", "ft", 381. / 1250, plural="feet").set_dimensions(length=1) \
 			+ Unit("inch", "in", 127. / 5000., plural="inches").set_dimensions(length=1) \
+			+ Unit(["centimetre", "centimeter"], "cm", 0.01).set_dimensions(length=1) \
 			+ Unit("point", "pt", 1.27 / 5000.).set_dimensions(length=1) \
 			+ Unit("angstrom", u"Å", 1e-10).set_dimensions(length=1) \
 			+ Unit("astronomical unit", "au", 149597870691.0).set_dimensions(length=1) \
@@ -97,6 +117,11 @@ class SIUnitDispenser(UnitDispenser):
 			+ Unit("weber", "Wb", 1.).set_dimensions(length=2, mass=1, time=-2, current=-1)
 
 class SIQuantity(Quantity):
+	'''
+	A subclass of :class:`Quantity` which has a fallback default dispenser of an
+	:class:`SIUnitDispenser` rather than an empty :class:`UnitDispenser`. See
+	documentation of :class:`Quantity` for more information.
+	'''
 
 	def _new(self, value, units, dispenser=None):
 		return SIQuantity(value, units, dispenser=self._dispenser if dispenser is None else dispenser)

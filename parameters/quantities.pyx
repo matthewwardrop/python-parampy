@@ -6,61 +6,111 @@ import numpy as np
 from .units import UnitDispenser, Units
 from .text import colour_text
 
-@total_ordering
 class Quantity(object):
 	'''
 	Quantity (value,units=None,dispenser=None)
 
-	An object that represents a physical quantity; that is, one with both
-	value and dimension. It is able to convert between different united
+	:param value: The value of the physical quantity in units of 'units'. Can be any python object conforming to standard numeric operations.
+	:type value: Numeric
+	:param units: A representation of the units of the object. See documentation of 'Units' for more information.
+	:type units: str or Units
+	:param dispenser: The unit dispenser object from which unit objects are drawn. If not specified, a new UnitDispenser object is created.
+	:type dispenser: UnitDispenser
+
+	A Quantity object represents a physical quantity; that is, one with both
+	a value and dimensions. It is able to convert between different united
 	representations; and keeps track of units in basic arithmetic.
 
-	Parameters
-	----------
-	value : The value of the physical quantity in units of `units`.
-	units : A representation of the units of the object; typically a string.
-		See documentation of 'Units' for more information.
-	dispenser : The unit dispenser object from which unit objects are drawn.
+	Instantiate a Quantity object:
+		To create a new Quantity object simply pass the value, unit representation
+		and an instance of UnitDispenser to the Quantity constructor. It is important
+		that the units provided are recognised by the UnitDispenser.
 
-	Examples
-	--------
+		>>> q = Quantity(1, 'ms', dispenser=SIUnitDispenser())
 
-	You can extract the value and units of a Quantity object separately by
-	accessing the 'value' and 'units' attributes of the object. The value
-	is returned as a float; and the units are returned as a Units object.
-	>>> Quantity(1,'ms').value == 1 and str(Quantity(1,'ms')) == 'ms'
-	returns True.
+		If no dispenser is provided, it internally defaults to the empty UnitDispenser.
+		A subclass named :class:`SIQuantity` is also available which defaults to the
+		SIUnitDispenser; a unit dispenser prepopulated with SI units. In the rest
+		of this documentation we use :class:`SIQuantity` for brevity.
 
-	There are only three methods that one might be interested to call on a
-	Quantity object.
+	Accessing value and units separately:
+		You can extract the value and units of a Quantity object separately by
+		accessing the 'value' and 'units' attributes of the object.
 
-	The first one is about unit conversion:
-	>>> Quantity(1,'m')('km')
-	This will convert the representation from 1 m to 0.001 km.
-	Note that if a conversion unit is supplied that has different dimensions
-	than the original unit, an exception will be raised.
+		>>> SIQuantity(1,'ms').value
+		1
+		>>> SIQuantity(1,'ms').units
+		'ms'
 
-	The second one is about converting the units to those of the underlying
-	basis.
-	>> Quantity(1,'km').basis()
-	This would output 1000 m if dispenser was an unmodified SIDispenser.
+	Unit conversion:
+		You can convert a Quantity object to another Quantity object with different
+		units provided the dimensions agree.
 
-	The third is a quick way to convert a number into a dimensionless form:
-	>> Quantity(1,'m') >> 'km'
-	This would return 0.001 .
+		>>> SIQuantity(1,'m')('km')
+		0.001 km
+		>>> SIQuantity(1,'g/ns')('kg/s')
+		1000000.0 kg/s
 
-	Otherwise, Quantity objects behave as you might expect.
-	Multiplication and division:
-	>>> Quantity(1,'m') * Quantity(2,'s')
-	is equivalent to: Quantity(2,'m*s')
-	>>> Quantity(1,'m') / Quantity(2,'kg/m^2')
-	is equivalent to: Quantity(2,'m^3/kg')
+		You can also do a unit conversion and keep only the value, using the
+		right shift operator:
 
-	Addition and subtraction:
-	>>> Quantity(1,'m') + Quantity(2,'km') == Quantity(2.001,'km')
-	returns True; and likewise for subtraction.
-	If you attempt to add or subtract quantities which do not share the same
-	units, an error is raised.
+		>>> SIQuantity(1,'m') >> 'km'
+		0.001
+
+	Representing in standard basis:
+		As a special case of the unit conversion described above, you can represent
+		any Quantity in the basis defined by the UnitDispenser, using the
+		:func:`basis` method. The SIUnitDispenser's basis is the fundamental SI
+		units.
+
+		>>> SIQuantity(1,'km').basis()
+		1000 m
+		>>> SIQuantity(1,'J').basis()
+		1.0 m^2*kg/s^2
+
+	Arithmetic with Quantity objects:
+		Quantity objects support basic arithmetic with the following operations:
+		- Addition and subtraction with another Quantity object of the same dimensions (final units taken from first argument)
+		- Multiplication and division with another Quantity object, or with a scalar numeric value.
+		- Absolute values.
+		- Arbitrary powers
+
+		For convenience, Quantity objects will recognise two-tuples as a prototype
+		for a Quantity, allowing for shorthand in numeric operations.
+
+		For example:
+
+		>>> SIQuantity(1,'ms') + (2,'s')
+		2001.0 ms
+		>>> (3,'km') - SIQuantity(2,'m')
+		2.998 km
+		>>> 2 * SIQuantity(10,'m')
+		20 m
+		>>> SIQuantity(10,'m') * SIQuantity(2,'s')
+		20 s*m
+		>>> SIQuantity(10,'m') / SIQuantity(3,'s') # Be careful with integer divison
+		3 m/s # Answer is wrong because SIQuantity does not change value types.
+		>> abs(SIQuantity(-5,'m'))
+		5 m
+		>> SIQuantity(5,'m*s')**2
+		25 s^2*m^2
+
+	Boolean logic with Quantity objects:
+		Quantity objects support the following boolean operators:
+		- Testing for equality and inequality
+		- Testing relative size using less than and greater than
+
+		As for arithmetic, two-tuples are automatically converted to Quantity objects
+		for comparison.
+
+		>>> SIQuantity(2,'m') == (200,'cm')
+		True
+		>>> SIQuantity(2,'m') != (200,'cm')
+		False
+		>>> SIQuantity(2,'ns') < SIQuantity(1000,'as')
+		False
+		>>> SIQuantity(2,'ns') > SIQuantity(1000,'as')
+		True
 	'''
 
 	def __init__(self, value, units=None, dispenser=None):
@@ -76,7 +126,17 @@ class Quantity(object):
 			self.units = units
 
 	def basis(self):
-		return self(self.units.basis)
+		'''
+		basis(self)
+
+		:returns: Quantity object with current value expressed in the basis units of the UnitDispenser.
+
+		For example, for the :class:`SIUnitDispenser`:
+
+		>>> SIQuantity(1,'J').basis()
+		1.0 kg*m^2/s^2
+		'''
+		return self(self.units.basis())
 
 	def _new(self, value, units, dispenser=None):
 		return Quantity(value, units, dispenser=self._dispenser if dispenser is None else dispenser)
@@ -99,38 +159,39 @@ class Quantity(object):
 	def __str__(self):
 		return unicode(self).encode('utf-8')
 
-	def __add__(self, other):
+	def __add__(self, other, reverse=False):
 		if other == 0:
 			return self._new(self.value, self.units)
 		elif type(other) is tuple and len(other) == 2:
 			other = self._new(*other)
 		elif not isinstance(other, Quantity):
 			other = self._new(other, None)
-		scale = other.units.scale(self.units)
-		return self._new(self.value + scale * other.value, self.units)
+		if reverse:
+			scale = self.units.scale(other.units)
+			return self._new(scale * self.value + other.value, other.units)
+		else:
+			scale = other.units.scale(self.units)
+			return self._new(self.value + scale * other.value, self.units)
 
 	def __radd__(self, other):
-		return self.__add__(other)
+		return self.__add__(other, reverse=True)
 
-	def __sub__(self, other):
+	def __sub__(self, other, reverse=False):
 		if other == 0:
 			return self._new(self.value, self.units)
 		elif type(other) is tuple and len(other) == 2:
 			other = self._new(*other)
 		elif not isinstance(other, Quantity):
 			other = self._new(other, None)
-		scale = other.units.scale(self.units)
-		return self._new(self.value - scale * other.value, self.units)
+		if reverse:
+			scale = self.units.scale(other.units)
+			return self._new(-scale * self.value + other.value, other.units)
+		else:
+			scale = other.units.scale(self.units)
+			return self._new(self.value - scale * other.value, self.units)
 
 	def __rsub__(self, other):
-		if other == 0:
-			return self._new(-self.value, self.units)
-		elif type(other) is tuple and len(other) == 2:
-			other = self._new(*other)
-		elif not isinstance(other, Quantity):
-			other = self._new(other, None)
-		scale = other.units.scale(self.units)
-		return self._new(-self.value + scale * other.value, self.units)
+		return self.__sub__(other, reverse=True)
 
 	def __abs__(self):
 		return self._new(abs(self.value), self.units)
@@ -145,13 +206,7 @@ class Quantity(object):
 			return self._new(self.value * other, self.units)
 
 	def __rmul__(self, other):
-		if type(other) is tuple and len(other) == 2:
-			other = self._new(*other)
-		try:
-			units = self.units * other.units
-			return self._new(self.value * other.value, units)
-		except AttributeError:
-			return self._new(self.value * other, self.units)
+		return self.__mul__(other)
 
 	def __div__(self, other):
 		if type(other) is tuple and len(other) == 2:
@@ -187,6 +242,9 @@ class Quantity(object):
 				return True
 		return False
 
+	def __ne__(self,other):
+		return not self.__eq__(other)
+
 	def __cmp__(self, other):
 		if type(other) is tuple and len(other) == 2:
 			other = self._new(*other)
@@ -198,10 +256,6 @@ class Quantity(object):
 				return 1
 			return -1
 		raise ValueError("Unknown comparison between Quantity and object of type %s." % (type(other)))
-
-	def __lt__(self, other):
-		scale = self.units.scale(other.units)
-		return self.value < other.value / scale
 
 	def __truncate(self, value):
 		if value == 0:

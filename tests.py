@@ -193,7 +193,7 @@ class TestParameters(unittest.TestCase):
 
 	def test_bounds(self):
 		self.p(x=(1,'J'))
-		self.p['x'] = ( (1,'J'), None )
+		self.p.bounds(x = ( (1,'J'), None ) )
 		self.assertRaises(errors.ParametersException,self.p,x=0)
 
 		self.p(y=(2,'J'))
@@ -334,7 +334,7 @@ if __name__ == '__main__':
 
 	timer("Functional Parameters", test_baseline2, test_arg_fn, test_param_fn, test_param_fn_sympy, test_param_fn_override)
 
-	p['x'] = (0,10)
+	p.bounds(x = (0,10))
 	def test_bounds_fn():
 		return p(x=5)
 	def test_bounds():
