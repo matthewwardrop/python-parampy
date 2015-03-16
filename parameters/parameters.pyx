@@ -20,16 +20,7 @@ import warnings
 class Parameters(object):
 	"""
 	Parameters(dispenser=None, default_scaled=True, constants=False)
-
-	:param dispenser: Should provide None or a custom unit dispenser. If None is
-		provided, Parameters will instantiate an SIUnitDispenser; which hosts
-		the standard units relative to an SI basis.
-	:type dispenser: UnitDispenser or None
-	:param default_scaled: :python:`True` when Parameters should by default return scaled non-dimensional parameters. :python:`False` otherwise.
-	:type default_scaled: bool
-	:param constants: :python:`True` when Parameters should import the physical constants when the internal :class:`UnitDispenser` is of type :class:`SIUnitDispenser`. :python:`False` otherwise.
-	:type constants: bool
-
+	
 	:class:`Parameters` is the main class in the :mod:`parameters` package, and
 	acts to organise and manage potentially interdependent physical quantities.
 	The functionality of this class includes:
@@ -39,12 +30,21 @@ class Parameters(object):
 	- Performing unit conversions of parameters
 	- Iterating over ranges of parameters
 	- Putting bounds on parameters
-
+	
 	A lot of the functionality of the :class:`Parameters` class is handled in
 	"magic" methods, meaning that you will not necessarily find what you want to
 	do by looking at the method documentation alone. In the rest of the class
 	documentation, we cover the use of Parameters magic methods, alluding to
 	the public methods where appropriate.
+	
+	:param dispenser: Should provide None or a custom unit dispenser. If None is
+		provided, Parameters will instantiate an SIUnitDispenser; which hosts
+		the standard units relative to an SI basis.
+	:type dispenser: UnitDispenser or None
+	:param default_scaled: :python:`True` when Parameters should by default return scaled non-dimensional parameters. :python:`False` otherwise.
+	:type default_scaled: bool
+	:param constants: :python:`True` when Parameters should import the physical constants when the internal :class:`UnitDispenser` is of type :class:`SIUnitDispenser`. :python:`False` otherwise.
+	:type constants: bool
 
 	Initialising a Parameters Instance:
 		Initialising a :class:`Parameters` instance with the default configuration is simple:
@@ -320,7 +320,7 @@ class Parameters(object):
 
 	def unit_add(self, *args, **kwargs):
 		'''
-		unit_add(self, *args, **kwargs)
+		unit_add(*args, **kwargs)
 
 		:param args: A length 1 sequence of Unit objects, or args to pass to the :class:`Unit` constructor.
 		:type args: tuple of mixed type
@@ -356,7 +356,7 @@ class Parameters(object):
 
 	def scaling(self, *args, **kwargs):
 		'''
-		scaling(self, *args, **kwargs)
+		scaling(*args, **kwargs)
 
 		:param args: A (possibly empty) sequence of dimensions to query.
 		:type args: tuple of str
@@ -409,7 +409,7 @@ class Parameters(object):
 
 	def unit_scaling(self, *params):
 		'''
-		unit_scaling(self, *params)
+		unit_scaling(*params)
 
 		:param params: A sequence of params for which to query internal non-dimensionalisation scaling.
 		:type params: tuple
@@ -777,7 +777,7 @@ class Parameters(object):
 
 	def cache(self, **kwargs):
 		'''
-		cache(self, **kwargs)
+		cache(**kwargs)
 
 		:param kwargs: Dictionary of boolean values
 		:type kwargs: :class:`dict`
@@ -977,7 +977,7 @@ class Parameters(object):
 
 	def forget(self, *params):
 		'''
-		forget(self, *params)
+		forget(*params)
 
 		:param params: List of parameter names to forget.
 		:type params: :class:`tuple` of :class:`str`
@@ -1186,7 +1186,7 @@ class Parameters(object):
 
 	def bounds(self, *params, **bounds):
 		'''
-		bounds(self, *params, **bounds)
+		bounds(*params, **bounds)
 
 		:param params: Sequence of parameter names for which to query the bounds.
 		:type param: tuple
@@ -1231,7 +1231,7 @@ class Parameters(object):
 
 	def set_bounds(self, bounds_dict, error=True, clip=False, inclusive=True):
 		'''
-		set_bounds(self, bounds_dict, error=True, clip=False, inclusive=True)
+		set_bounds(bounds_dict, error=True, clip=False, inclusive=True)
 
 		:param bounds_dict: A dictionary with parameters as keys with a valid bounding specification (described below).
 		:type bounds_dict: dict
@@ -1326,7 +1326,7 @@ class Parameters(object):
 
 	def range(self, *args, **ranges):
 		'''
-		range(self, *args, **ranges)
+		range(*args, **ranges)
 
 		:param args: A sequence of parameters (or parameter expressions).
 		:type args: tuple
@@ -1480,7 +1480,7 @@ class Parameters(object):
 	################## Function iteration ##################################
 	def ranges_iterator(self, ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None):
 		'''
-		ranges_iterator(self, ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None)
+		ranges_iterator(ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None)
 
 		This method is shorthand for:
 
@@ -1499,7 +1499,7 @@ class Parameters(object):
 	################## CONVERT UTILITY #####################################
 	def asvalue(self, **kwargs):
 		'''
-		asvalue(self, **kwargs)
+		asvalue(**kwargs)
 
 		:param kwargs: A dictionary of parameter values
 		:returns: Number (normally float, but could be complex, etc)
@@ -1532,7 +1532,7 @@ class Parameters(object):
 
 	def asscaled(self, **kwargs):
 		'''
-		asscaled(self, **kwargs)
+		asscaled(**kwargs)
 
 		:param kwargs: A dictionary of parameter values
 		:returns: Number (normally float, but could be complex, etc)
@@ -1560,7 +1560,7 @@ class Parameters(object):
 
 	def units(self, *params):
 		'''
-		units(self, *params)
+		units(*params)
 
 		:param params: A sequence of parameters for which to extract the default units.
 		:param type: tuple of str
@@ -1630,7 +1630,7 @@ class Parameters(object):
 
 	def optimise(self, param):
 		'''
-		optimise(self, param)
+		optimise(param)
 
 		:param param: Any parameter specification that is accepted by parameter retrieval.
 		:param type: object
@@ -1659,7 +1659,7 @@ class Parameters(object):
 
 	def is_resolvable(self, *args, **params):
 		'''
-		is_resolvable(self, *args, **params)
+		is_resolvable(*args, **params)
 
 		:param args: Sequence of parameter names.
 		:type args: tuple
@@ -1692,7 +1692,7 @@ class Parameters(object):
 
 	def is_function(self, param, **params):
 		'''
-		is_function(self, param, **params)
+		is_function(param, **params)
 
 		:param param: Name of parameter
 		:type param: str
@@ -1732,7 +1732,7 @@ class Parameters(object):
 
 	def is_constant(self, *args, **params):
 		'''
-		is_constant(self, *args, **params)
+		is_constant(*args, **params)
 
 		:param args: Sequence of parameter names.
 		:type args: tuple
@@ -1808,7 +1808,7 @@ class Parameters(object):
 
 	def plot(self, *params, **ranges):
 		'''
-		plot(self, *params, **ranges)
+		plot(*params, **ranges)
 
 		:param params: A sequence of parameter expressions to plot.
 		:type params: tuple

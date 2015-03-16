@@ -10,16 +10,16 @@ class Quantity(object):
 	'''
 	Quantity (value,units=None,dispenser=None)
 
+	A Quantity object represents a physical quantity; that is, one with both
+	a value and dimensions. It is able to convert between different united
+	representations; and keeps track of units in basic arithmetic.
+	
 	:param value: The value of the physical quantity in units of 'units'. Can be any python object conforming to standard numeric operations.
 	:type value: Numeric
 	:param units: A representation of the units of the object. See documentation of 'Units' for more information.
 	:type units: str or Units
 	:param dispenser: The unit dispenser object from which unit objects are drawn. If not specified, a new UnitDispenser object is created.
 	:type dispenser: UnitDispenser
-
-	A Quantity object represents a physical quantity; that is, one with both
-	a value and dimensions. It is able to convert between different united
-	representations; and keeps track of units in basic arithmetic.
 
 	Instantiate a Quantity object:
 		To create a new Quantity object simply pass the value, unit representation
@@ -127,7 +127,7 @@ class Quantity(object):
 
 	def basis(self):
 		'''
-		basis(self)
+		basis()
 
 		:returns: Quantity object with current value expressed in the basis units of the UnitDispenser.
 

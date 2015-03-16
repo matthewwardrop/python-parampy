@@ -9,6 +9,10 @@ class Unit(object):
 	'''
 	Unit (name,abbr=None,rel=1.0,prefixable=True,plural=None,dimensions={})
 
+	:class:`Unit` is the fundamental object which represents a single unit in units
+	specification. For example, in "m*s", each of "m" and "s" would have their own
+	associated :class:`Unit` object.
+	
 	:param name: A string or list of strings that are used as full names for this unit. If more than one is provided, the first is used as the default representation.
 	:type name: str or list of str
 	:param abbr: A string or list of strings that will be used to represent the abbreviated unit. If more than one is provided, the first is used as the default representation.
@@ -21,10 +25,6 @@ class Unit(object):
 	:type plural: str
 	:param dimensions: A dictionary specfification of the dimensions of this unit.
 	:type dimensions: dict
-
-	:class:`Unit` is the fundamental object which represents a single unit in units
-	specification. For example, in "m*s", each of "m" and "s" would have their own
-	associated :class:`Unit` object.
 
 	To instantiate a :class:`Unit` object, you can use something like:
 	>>> u = Unit('metre',abbr='m',rel=1.0,dimensions={'length':1})
@@ -50,9 +50,7 @@ class Unit(object):
 	@property
 	def name(self):
 		'''
-		name(self)
-
-		:returns: The default full name for this unit.
+		The default full name for this unit.
 
 		To set the name(s) for this unit, you can use:
 
@@ -69,18 +67,14 @@ class Unit(object):
 	@property
 	def names(self):
 		'''
-		names(self)
-
-		:returns: The full list or tuple of names specified for this unit.
+		The full list or tuple of names specified for this unit.
 		'''
 		return self.__names
 
 	@property
 	def abbr(self):
 		'''
-		abbr(self)
-
-		:returns: The default abbreviation for this unit.
+		The default abbreviation for this unit.
 
 		To set the name(s) for this unit, you can use:
 
@@ -111,9 +105,7 @@ class Unit(object):
 	@property
 	def dimensions(self):
 		'''
-		dimensions(self)
-
-		:returns: The dictionary of dimensions specified for this unit.
+		The dictionary of dimensions specified for this unit.
 
 		To set the dimensions for this unit, you can use:
 
@@ -132,7 +124,7 @@ class Unit(object):
 		self.__dimensions = dimensions
 	def set_dimensions(self, **dimensions):
 		'''
-		set_dimensions(self, **dimensions)
+		set_dimensions(**dimensions)
 
 		:param dimensions: Dictionary of dimensions.
 		:type dimensions: dict
@@ -206,19 +198,23 @@ class UnitDispenser(object):
 	############# SETUP ROUTINES ###########################################
 	def init_prefixes(self):
 		'''
+		init_prefixes()
+		
 		A stub to allow subclasses to populate themselves.
 		'''
 		pass
 
 	def init_units(self):
 		'''
+		init_units()
+		
 		A stub to allow subclasses to populate themselves.
 		'''
 		pass
 
 	def add(self, unit, check=True):
 		'''
-		add(self, unit, check=True)
+		add(unit, check=True)
 
 		:param unit: The unit to be added to the UnitDispenser.
 		:type unit: Unit
@@ -299,7 +295,7 @@ class UnitDispenser(object):
 
 	def list(self):
 		'''
-		list(self)
+		list()
 
 		:returns: A list of strings representing the units recognised by the UnitDispenser.
 
@@ -314,7 +310,7 @@ class UnitDispenser(object):
 
 	def has(self, identifier):
 		'''
-		has(self, identifier)
+		has(identifier)
 
 		:param identifier: A string representation of the unit of interest.
 		:type identifier: str
@@ -328,7 +324,7 @@ class UnitDispenser(object):
 
 	def get(self, unit):
 		'''
-		get(self, unit)
+		get(unit)
 
 		:param unit: A string representation of the unit of interest.
 		:type unit: str
@@ -356,7 +352,7 @@ class UnitDispenser(object):
 
 	def basis(self, **kwargs):
 		'''
-		basis(self, **kwargs)
+		basis(**kwargs)
 
 		:param kwargs: A dictionary of :class:`Unit` or :class:`str` objects with dimension names as keys.
 		:type kwargs: dict
@@ -404,16 +400,16 @@ class UnitDispenser(object):
 class Units(object):
 	'''
 	Units(units=None,dispenser=None)
-
-	:param units: A representation of the units in some form. See below for details.
-	:param dispenser: A reference to the UnitDispenser from which to draw units for this object.
-	:type dispenser: UnitDispenser
-
+	
 	The :class:`Units` object is the highest level class in python-parameters which
 	deals only with units; and is the class used directly by :class:`Quantity`. It
 	handles drawing appropriate units from a :class:`UnitDispenser`, and performing
 	:class:`Unit` arithmetic. This arithmetic is mostly useful when used behind
 	the scenes by a :class:`Quantity` instance.
+
+	:param units: A representation of the units in some form. See below for details.
+	:param dispenser: A reference to the UnitDispenser from which to draw units for this object.
+	:type dispenser: UnitDispenser
 
 	Representation of units:
 		The unit representation passed to the :class:`Units` constructor can be:
@@ -567,7 +563,7 @@ class Units(object):
 
 	def scale(self, other):
 		'''
-		scale(self, other)
+		scale(other)
 
 		:param other: Unit with which to compare.
 		:type other: Units
@@ -631,7 +627,7 @@ class Units(object):
 
 	def basis(self):
 		'''
-		basis(self)
+		basis()
 
 		:returns: A new :class:`Units` object representing the units in the :class:`UnitDispenser` basis that correspond to the same dimensions as this object.
 

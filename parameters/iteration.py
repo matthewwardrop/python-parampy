@@ -5,7 +5,12 @@ import types
 class RangesIterator(object):
 	'''
 	RangesIterator(parameters, ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None)
-
+	
+	:class:`RangesIterator` is a python iterable object, which allows one to easily
+	iterate over a potentially multidimensional space of parameters. It also has
+	inbuilt multithreading 	support which is used when a function is supplied in order
+	to fully take advantage of the available computational resources.
+	
 	:param parameters: A reference to a Parameters instance.
 	:type parameters: Parameters
 	:param ranges: The ranges to iterate over.
@@ -22,12 +27,6 @@ class RangesIterator(object):
 	:type nprocs: None or int
 	:param ranges_eval: An (optional) previously computed ranges_eval to use in this enumeration.
 	:type ranges_eval: numpy.ndarray
-
-
-	:class:`RangesIterator` is a python iterable object, which allows one to easily
-	iterate over a potentially multidimensional space of parameters. It also has
-	inbuilt multithreading 	support which is used when a function is supplied in order
-	to fully take advantage of the available computational resources.
 
 	Constructing a RangesIterator instance:
 		In its simplest form, initialising a :class:`RangesIterator` looks like:
@@ -263,7 +262,7 @@ class RangesIterator(object):
 
 	def ranges_expand(self):
 		'''
-		ranges_expand(self)
+		ranges_expand()
 
 		:returns: A two-tuple of a structured numpy.ndarray with keys that are the parameters being iterated over and values being their current non-dimensional value, and the list of indicies to consider as filtered by masks.
 
