@@ -12,7 +12,7 @@ class Unit(object):
 	:class:`Unit` is the fundamental object which represents a single unit in units
 	specification. For example, in "m*s", each of "m" and "s" would have their own
 	associated :class:`Unit` object.
-	
+
 	:param name: A string or list of strings that are used as full names for this unit. If more than one is provided, the first is used as the default representation.
 	:type name: str or list of str
 	:param abbr: A string or list of strings that will be used to represent the abbreviated unit. If more than one is provided, the first is used as the default representation.
@@ -37,7 +37,7 @@ class Unit(object):
 	specified in the key should be taken.
 	'''
 
-	def __init__(self, name, abbr=None, rel=1.0, prefixable=True, plural=None, dimensions=None):
+	def __init__(self, name=None, abbr=None, rel=1.0, prefixable=True, plural=None, dimensions=None):
 		self.name = name
 		self.abbr = abbr
 		self.plural = plural
@@ -63,6 +63,8 @@ class Unit(object):
 		return self.__names[0]
 	@name.setter
 	def name(self, name):
+		if name is None:
+			raise ValueError("Unit objects require a valid name.")
 		self.__names = name if isinstance(name, (tuple, list)) else (name,)
 	@property
 	def names(self):
@@ -199,7 +201,7 @@ class UnitDispenser(object):
 	def init_prefixes(self):
 		'''
 		init_prefixes()
-		
+
 		A stub to allow subclasses to populate themselves.
 		'''
 		pass
@@ -207,7 +209,7 @@ class UnitDispenser(object):
 	def init_units(self):
 		'''
 		init_units()
-		
+
 		A stub to allow subclasses to populate themselves.
 		'''
 		pass
@@ -400,7 +402,7 @@ class UnitDispenser(object):
 class Units(object):
 	'''
 	Units(units=None,dispenser=None)
-	
+
 	The :class:`Units` object is the highest level class in python-parameters which
 	deals only with units; and is the class used directly by :class:`Quantity`. It
 	handles drawing appropriate units from a :class:`UnitDispenser`, and performing
