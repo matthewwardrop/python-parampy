@@ -20,7 +20,7 @@ import warnings
 class Parameters(object):
 	"""
 	Parameters(dispenser=None, default_scaled=True, constants=False)
-	
+
 	:class:`Parameters` is the main class in the :mod:`parameters` package, and
 	acts to organise and manage potentially interdependent physical quantities.
 	The functionality of this class includes:
@@ -30,13 +30,13 @@ class Parameters(object):
 	- Performing unit conversions of parameters
 	- Iterating over ranges of parameters
 	- Putting bounds on parameters
-	
+
 	A lot of the functionality of the :class:`Parameters` class is handled in
 	"magic" methods, meaning that you will not necessarily find what you want to
 	do by looking at the method documentation alone. In the rest of the class
 	documentation, we cover the use of Parameters magic methods, alluding to
 	the public methods where appropriate.
-	
+
 	:param dispenser: Should provide None or a custom unit dispenser. If None is
 		provided, Parameters will instantiate an SIUnitDispenser; which hosts
 		the standard units relative to an SI basis.
@@ -1478,14 +1478,14 @@ class Parameters(object):
 		return pam_range
 
 	################## Function iteration ##################################
-	def ranges_iterator(self, ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None):
+	def ranges_iterator(self, ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None, progress=True):
 		'''
-		ranges_iterator(ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None)
+		ranges_iterator(ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None, progress=True)
 
 		This method is shorthand for:
 
-		>>> RangesIterator(parameters=self, ranges=ranges, params=params, masks=masks, \
-				function=function, function_kwargs=function_kwargs, nprocs=nprocs, ranges_eval=ranges_eval)
+		>>> RangesIterator(parameters=self, ranges=ranges, params=params, masks=masks, function=function, \
+						function_kwargs=function_kwargs, nprocs=nprocs, ranges_eval=ranges_eval, progress=progress)
 
 		The :class:`RangesIterator` object allows you to iterate over nested parameter
 		ranges, which is useful when you want to sweep out a multidimensional parameter
@@ -1494,7 +1494,8 @@ class Parameters(object):
 
 		For more information, please refer to the :class:`RangesIterator` documentation.
 		'''
-		return RangesIterator(parameters=self, ranges=ranges, params=params, masks=masks, function=function, function_kwargs=function_kwargs, nprocs=nprocs, ranges_eval=ranges_eval)
+		return RangesIterator(parameters=self, ranges=ranges, params=params, masks=masks, function=function, \
+						function_kwargs=function_kwargs, nprocs=nprocs, ranges_eval=ranges_eval, progress=progress)
 
 	################## CONVERT UTILITY #####################################
 	def asvalue(self, **kwargs):

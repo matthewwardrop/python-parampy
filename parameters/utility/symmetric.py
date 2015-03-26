@@ -112,20 +112,28 @@ class AsyncParallelMap(object):
 				break
 
 	def __print_progress(self, count):
+		progress = self.progress
+		if self.progress is True:
+			progress = self.__print_progress_fallback
 
-		current = self.count + ( self.count_offset if self.count_offset is not None else 0 )
-		total = count + self.count_offset if self.count_total is None else self.count_total
+		progress(
+			total = count + self.count_offset if self.count_total is None else self.count_total,
+			completed = self.count + ( self.count_offset if self.count_offset is not None else 0 ),
+			start_time = self.start_time
+		)
 
-		progress = float(current) / total
+	def __print_progress_fallback(self, total, completed, start_time):
+		progress = float(completed) / total
+
 		sys.stderr.write("\r %3d%% | %d of %d | Memory usage: %.2f MB" % (
 								progress * 100,
-								current,
+								completed,
 								total,
 								resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024.)
 						)
 
 		if progress > 0:
-			delta = datetime.datetime.now() - self.start_time
+			delta = datetime.datetime.now() - start_time
 			delta = datetime.timedelta( delta.total_seconds()/24/3600 * (1-progress)/progress )
 			sys.stderr.write(" | Remaining: %02dd:%02dh:%02dm:%02ds" % (
 					delta.days,
@@ -135,7 +143,7 @@ class AsyncParallelMap(object):
 				)
 			)
 
-		if current == total:
+		if completed == total:
 			sys.stderr.write('\n')
 
 		sys.stderr.flush()
@@ -151,7 +159,7 @@ class AsyncParallelMap(object):
 		if not self.spawnonce:
 			X = X + [(None, None, None)] * self.nprocs  # add sentinels
 
-		for i, (x_indicies, x_args, x_kwargs) in enumerate(X):
+		for i, (x_indices, x_args, x_kwargs) in enumerate(X):
 
 			if self.spawnonce and self.count + self.nprocs <= i:  # Wait for processes to finish before starting new ones
 				yield self.q_out.get()
@@ -162,7 +170,7 @@ class AsyncParallelMap(object):
 				kwargs.update(x_kwargs)
 			else:
 				kwargs = x_kwargs
-			self.q_in.put( (x_indicies, x_args, kwargs) )
+			self.q_in.put( (x_indices, x_args, kwargs) )
 			if self.spawnonce:
 				self.proc.append(multiprocessing.Process(target=spawnonce(self.f), args=(self.q_in, self.q_out)))
 				self.proc[-1].daemon = False
@@ -177,7 +185,7 @@ class AsyncParallelMap(object):
 				yield result
 
 			gc.collect()
-			if self.progress:
+			if self.progress is not False:
 				self.__print_progress(count)
 
 		self.q_in.close()
@@ -185,7 +193,7 @@ class AsyncParallelMap(object):
 		while self.count < len(X) - (self.nprocs if not self.spawnonce else 0):
 			yield self.q_out.get()
 			self.count += 1
-			if self.progress:
+			if self.progress is not False:
 				self.__print_progress(count)
 
 		if not self.spawnonce:

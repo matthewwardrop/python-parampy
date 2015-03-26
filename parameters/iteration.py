@@ -1,16 +1,20 @@
-import numpy as np
+import sys
+import resource
 import datetime
 import types
 
+import numpy as np
+
+
 class RangesIterator(object):
 	'''
-	RangesIterator(parameters, ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None)
-	
+	RangesIterator(parameters, ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None, progress=True)
+
 	:class:`RangesIterator` is a python iterable object, which allows one to easily
 	iterate over a potentially multidimensional space of parameters. It also has
 	inbuilt multithreading 	support which is used when a function is supplied in order
 	to fully take advantage of the available computational resources.
-	
+
 	:param parameters: A reference to a Parameters instance.
 	:type parameters: Parameters
 	:param ranges: The ranges to iterate over.
@@ -27,6 +31,11 @@ class RangesIterator(object):
 	:type nprocs: None or int
 	:param ranges_eval: An (optional) previously computed ranges_eval to use in this enumeration.
 	:type ranges_eval: numpy.ndarray
+	:param progress: `True` if progress should be shown, and `False` otherwise. This can also
+		be a callable object taking arguments `total`, `completed` and `start_time`, which
+		are the total number of indices to compute, the number completed computations,
+		and the start time computed using `datetime.datetime.now()`.
+	:type progress: bool or callable
 
 	Constructing a RangesIterator instance:
 		In its simplest form, initialising a :class:`RangesIterator` looks like:
@@ -59,9 +68,9 @@ class RangesIterator(object):
 		>>> for result in iterator:
 				# Do something here
 
-		In each iteration of the above loop, result will be a two-tuple of the indicies of
+		In each iteration of the above loop, result will be a two-tuple of the indices of
 		the current iteration in the cartesian product and one of the following:
-		- If :func:`function` is not specified, then a dictionary of the parameters (including except where overwritten those in :python:`params`) corresponding to the cartesian indicies.
+		- If :func:`function` is not specified, then a dictionary of the parameters (including except where overwritten those in :python:`params`) corresponding to the cartesian indices.
 		- If :func:`function` is specified, the value of the function evaluated in the parameter context, and with the kwargs arguments in :python:`function_kwargs`.
 
 	Specifying a function to be evaluated:
@@ -105,18 +114,18 @@ class RangesIterator(object):
 		a previously started sweep.
 
 		Masks should be callable objects with a signature of:
-		:code:`<mask_name>(indicies, ranges=None, params={})`
+		:code:`<mask_name>(indices, ranges=None, params={})`
 
 		For example:
 
-		>>> def deny_mask(indicies, ranges=None, params={}):
-				return False # Deny all indicies.
+		>>> def deny_mask(indices, ranges=None, params={}):
+				return False # Deny all indices.
 
-		At runtime, the current indicies in question are passed as indicies, along
+		At runtime, the current indices in question are passed as indices, along
 		with the range specifications and current parameter context.
 	'''
 
-	def __init__(self, parameters, ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None):
+	def __init__(self, parameters, ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None, progress=True):
 		self.p = parameters
 		self.ranges = ranges
 		self.function = function
@@ -125,6 +134,7 @@ class RangesIterator(object):
 		self.masks = masks
 		self.nprocs = nprocs
 		self.ranges_eval = ranges_eval
+		self.progress = progress
 
 	@property
 	def p(self):
@@ -213,7 +223,7 @@ class RangesIterator(object):
 	@property
 	def masks(self):
 		'''
-		The list of mask callables used to filter which indicies in the cartesian
+		The list of mask callables used to filter which indices in the cartesian
 		product of ranges are to be considered.
 
 		You can change the masks using:
@@ -264,7 +274,7 @@ class RangesIterator(object):
 		'''
 		ranges_expand()
 
-		:returns: A two-tuple of a structured numpy.ndarray with keys that are the parameters being iterated over and values being their current non-dimensional value, and the list of indicies to consider as filtered by masks.
+		:returns: A two-tuple of a structured numpy.ndarray with keys that are the parameters being iterated over and values being their current non-dimensional value, and the list of indices to consider as filtered by masks.
 
 		For example:
 
@@ -276,12 +286,30 @@ class RangesIterator(object):
 		'''
 		return self.__ranges_expand(masks=self.masks,params=self.params.copy(),ranges_eval=self.__ranges_eval)
 
-	def __ranges_expand(self,level=0,iteration=tuple(),masks=None,indicies=None,params=None,ranges_eval=None):
+	@property
+	def progress(self):
+		'''
+		A boolean indicating whether progress should be shown, or a callable object
+		which takes arguments:
+			- `total`: The total number of computations to be performed.
+			- `completed`: The number of computations completed.
+			- `start_time`: When the computation started (as a `datetime.datetime` object).
+
+		You can change progress using:
+
+		>>> iterator.progress = <bool or callable>
+		'''
+		return self.__progress
+	@progress.setter
+	def progress(self, progress):
+		self.__progress = progress
+
+	def __ranges_expand(self,level=0,iteration=tuple(),masks=None,indices=None,params=None,ranges_eval=None):
 		'''
 		This method generates a list of different parameter configurations
 		'''
-		if indicies is None:
-			indicies = []
+		if indices is None:
+			indices = []
 		if params is None:
 			params = {}
 
@@ -319,21 +347,21 @@ class RangesIterator(object):
 			for param, pam_value in pam_values.items():
 				ranges_eval[param][s] = pam_value[i]
 				if np.isnan(pam_value[i]):
-					raise ValueError ("Bad number for parameter %s @ indicies %s"% (param,str(current_iteration)))
+					raise ValueError ("Bad number for parameter %s @ indices %s"% (param,str(current_iteration)))
 
 				params[param] = pam_value[i]
 
 			if level < len(self.ranges) - 1:
 				# Recurse problem
-				ranges_eval,_ = self.__ranges_expand(level=level+1,iteration=current_iteration,indicies=indicies,params=params,masks=masks,ranges_eval=ranges_eval)
+				ranges_eval,_ = self.__ranges_expand(level=level+1,iteration=current_iteration,indices=indices,params=params,masks=masks,ranges_eval=ranges_eval)
 			else:
 				if masks is not None and isinstance(masks,list):
-					if not any( [mask(indicies=current_iteration,ranges=self.ranges,params=params) for mask in masks] ):
+					if not any( [mask(indices=current_iteration,ranges=self.ranges,params=params) for mask in masks] ):
 						continue
 
-				indicies.append( current_iteration )
+				indices.append( current_iteration )
 
-		return ranges_eval, indicies
+		return ranges_eval, indices
 
 	def __extend_ranges(self,ranges_eval,labels,size):
 		dtype_delta = [(label,float) for label in labels]
@@ -356,23 +384,49 @@ class RangesIterator(object):
 		return params
 
 	def __iter__(self,):
-		ranges_eval, indicies = self.ranges_expand()
+		ranges_eval, indices = self.ranges_expand()
 
 		start_time = datetime.datetime.now()
 		if self.nprocs not in [0,1] and self.function is not None:
 			from .utility.symmetric import AsyncParallelMap
-			apm = AsyncParallelMap(self.function,progress=True,nprocs=self.nprocs,spawnonce=True)
-			callback = None
+			apm = AsyncParallelMap(self.function,progress=self.progress,nprocs=self.nprocs,spawnonce=True)
 
-			for res in apm.iterate([(i,tuple(),{'params':self.__index_to_dict(i,ranges_eval)}) for i in indicies],count_offset=0,count_total=len(indicies),start_time=start_time, base_kwargs=self.function_kwargs ):
+			for res in apm.iterate([(i,tuple(),{'params':self.__index_to_dict(i,ranges_eval)}) for i in indices],count_offset=0,count_total=len(indices),start_time=start_time, base_kwargs=self.function_kwargs ):
 				yield res
 		else:
-			apm = None
-			#levels_info = [{'name':','.join(ranges[i].keys()),'count':ranges_eval.shape[i]} for i in xrange(ranges_eval.ndim)]
-			#callback = IteratorCallback(levels_info,ranges_eval.shape)
-
-			for i in indicies:
+			for i in indices:
 				if self.function is None:
 					yield (i, self.__index_to_dict(i,ranges_eval) )
 				else:
 					yield (i, self.function(params=self.__index_to_dict(i,ranges_eval),**self.function_kwargs))
+			if self.progress is not False:
+				if self.progress is True:
+					self.__print_progress_fallback(len(indices), i+1, start_time)
+				else:
+					self.progress(len(indices), i+1, start_time)
+
+	def __print_progress_fallback(self, total, completed, start_time):
+		progress = float(completed) / total
+
+		sys.stderr.write("\r %3d%% | %d of %d | Memory usage: %.2f MB" % (
+								progress * 100,
+								completed,
+								total,
+								resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024.)
+						)
+
+		if progress > 0:
+			delta = datetime.datetime.now() - start_time
+			delta = datetime.timedelta( delta.total_seconds()/24/3600 * (1-progress)/progress )
+			sys.stderr.write(" | Remaining: %02dd:%02dh:%02dm:%02ds" % (
+					delta.days,
+					delta.seconds/3600,
+					delta.seconds/60 % 60,
+					delta.seconds % 60
+				)
+			)
+
+		if total == total:
+			sys.stderr.write('\n')
+
+		sys.stderr.flush()
