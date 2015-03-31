@@ -394,16 +394,16 @@ class RangesIterator(object):
 			for res in apm.iterate([(i,tuple(),{'params':self.__index_to_dict(i,ranges_eval)}) for i in indices],count_offset=0,count_total=len(indices),start_time=start_time, base_kwargs=self.function_kwargs ):
 				yield res
 		else:
-			for i in indices:
+			for i, index in enumerate(indices):
 				if self.function is None:
-					yield (i, self.__index_to_dict(i,ranges_eval) )
+					yield (index, self.__index_to_dict(index,ranges_eval) )
 				else:
-					yield (i, self.function(params=self.__index_to_dict(i,ranges_eval),**self.function_kwargs))
-			if self.progress is not False:
-				if self.progress is True:
-					self.__print_progress_fallback(len(indices), i+1, start_time)
-				else:
-					self.progress(len(indices), i+1, start_time)
+					yield (index, self.function(params=self.__index_to_dict(index,ranges_eval),**self.function_kwargs))
+				if self.progress is not False:
+					if self.progress is True:
+						self.__print_progress_fallback(len(indices), i + 1, start_time)
+					else:
+						self.progress(len(indices), i + 1, start_time)
 
 	def __print_progress_fallback(self, total, completed, start_time):
 		progress = float(completed) / total
@@ -426,7 +426,7 @@ class RangesIterator(object):
 				)
 			)
 
-		if total == total:
+		if total == completed:
 			sys.stderr.write('\n')
 
 		sys.stderr.flush()
