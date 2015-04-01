@@ -508,7 +508,7 @@ class Parameters(object):
 
 			value = self.__parameters[param]
 			if isinstance(value, types.FunctionType):
-				self.__cache_deps[param] = inspect.getargspec(value).args
+				self.__cache_deps[param] = self.__function_getargs(value)
 			else:
 				self.__cache_deps[param] = []
 
@@ -678,7 +678,7 @@ class Parameters(object):
 				val = self.__get_function(val[0])
 			if type(val) is types.FunctionType:
 				pam = self.__get_pam_name(pam)
-				deps = [self.__get_pam_name(dep) for dep in inspect.getargspec(val).args]
+				deps = [self.__get_pam_name(dep) for dep in self.__function_getargs(val)]
 				dependencies[pam] = set(deps)
 
 		pam_order = pam_ordering(dependencies)
@@ -705,7 +705,7 @@ class Parameters(object):
 				except errors.ParameterNotInvertableError as e:
 					if abort_noninvertable:
 						raise e
-					warnings.warn(errors.ParameterInconsistentWarning("Parameters are probably inconsistent as %s was overridden, but is not invertable, and so the underlying variables (%s) have not been updated." % (pam, ','.join(inspect.getargspec(self.__parameters.get(pam)).args))))
+					warnings.warn(errors.ParameterInconsistentWarning("Parameters are probably inconsistent as %s was overridden, but is not invertable, and so the underlying variables (%s) have not been updated." % (pam, ','.join(self.__function_getargs(self.__parameters[pam])))))
 
 		if len(new) != 0:
 			kwargs.update(new)
@@ -872,7 +872,7 @@ class Parameters(object):
 			return self.__get_quantity(arg, scaled=self.__default_scaled)
 
 		elif t == types.FunctionType:
-			deps = inspect.getargspec(arg)[0]
+			deps = self.__function_getargs(arg)
 			params = self.__get_params(deps, kwargs)
 			args = [val for val in [params[self.__get_pam_name(x)] for x in deps]]  # Done separately to avoid memory leak when cythoned.
 			return arg(*args)
@@ -1013,7 +1013,7 @@ class Parameters(object):
 
 	def __check_function(self, param, f, forbidden=None):
 
-		args = inspect.getargspec(f).args
+		args = list(self.__function_getargs(f))
 
 		while param in args:
 			args.remove(param)
@@ -1031,6 +1031,9 @@ class Parameters(object):
 				self.__check_function(arg, self.__parameters.get(arg), forbidden=forbidden[:])
 
 		return f
+	
+	def __function_getargs(self, f):  # faster than inspect.getargspec(f).args
+		return f.__code__.co_varnames[:f.__code__.co_argcount]
 
 	def __basis_scale(self, unit):
 		unit = self.__get_unit(unit)
@@ -1794,7 +1797,7 @@ class Parameters(object):
 		if isinstance(param_val, Quantity):
 			return True
 		elif isinstance(param_val, types.FunctionType):
-			deps = inspect.getargspec(param_val).args
+			deps = self.__function_getargs(param_val)
 			for dep in deps:
 				dep = self.__get_pam_name(dep)
 				if dep == param:
