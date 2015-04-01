@@ -507,7 +507,7 @@ class Parameters(object):
 				return []
 
 			value = self.__parameters[param]
-			if isinstance(value, types.FunctionType):
+			if type(value) == types.FunctionType:
 				self.__cache_deps[param] = self.__function_getargs(value)
 			else:
 				self.__cache_deps[param] = []
@@ -594,7 +594,7 @@ class Parameters(object):
 
 		# If the parameter is actually a function or otherwise not directly in the dictionary of stored parameters
 		if not isinstance(arg, str) or (pam_name not in kwargs and pam_name not in self.__parameters):
-			return self.__eval(arg, kwargs)
+			return self.__eval(arg, kwargs, default_scaled)
 		else:
 			scaled = default_scaled if default_scaled is not None else self.__default_scaled
 			if arg[:1] == "_":  # .startswith("_"):
@@ -606,7 +606,7 @@ class Parameters(object):
 				return self.__get_quantity(kwargs[arg], param=arg, scaled=scaled)
 
 			# If the parameter is a function, evaluate it with local parameter values (except where overridden in kwargs)
-			elif isinstance(self.__parameters[arg], types.FunctionType):
+			elif type(self.__parameters[arg]) is types.FunctionType:
 				return self.__get_quantity(self.__eval_function(arg, kwargs)[arg], param=arg, scaled=scaled)
 
 			# Otherwise, return the value currently stored in the parameters
@@ -667,7 +667,7 @@ class Parameters(object):
 		dependencies = {}
 		for pam in restrict:
 			if pam[0] == "_":
-				raise ValueError("Parameter type is autodetected. Do not use '_' to switch between scaled and unitted parameters.")
+				raise ValueError("Parameter type is autodetected when passed as a keyword argument. Do not use '_' to switch between scaled and unitted parameters.")
 			val = kwargs[pam]
 			if type(val) is str:
 				val = self.__get_function(val)
@@ -722,42 +722,44 @@ class Parameters(object):
 
 		f = self.__parameters.get(param)
 		deps = self.__get_pam_deps(param)
+		param_names = (param, '_%s' % param)
 
-		# Check if we are allowed to continue
-		if param in kwargs and param not in deps and "_" + param not in deps:
-			raise errors.ParameterNotInvertableError("Configuration requiring the inverting of a non-invertable map for %s." % param)
-
-		arguments = []
-		for arg in deps:
-
-			if arg in (param, "_%s" % param) and param not in kwargs:
-				continue
-
-			arguments.append(self.__get_param(arg, kwargs))
-
-		cached = self.__cache_func_handler(param, params=arguments)
-		if cached is not None:
-			return {param: cached}
+		# Check if we are inverting or evaluating (if param is in kwargs, we are inverting), and prepare.
+		if param in kwargs:
+			if deps[-1] not in param_names:
+				raise errors.ParameterNotInvertableError("Configuration requiring the inverting of a non-invertable map for %s." % param)
 		else:
-			r = f(*arguments)
-			if not isinstance(r, (list,tuple)):
-				r = [r]
-
-			# If we are not performing the inverse operation
-			if param not in kwargs:
-				value = self.__get_quantity(r[0], param=param)
-				self.__cache_func_handler(param, value=value, params=arguments)
-				return {param: value}
-
-		# Deal with the inverse operation case
-		inverse = {}
-
-		for i, arg in enumerate(deps):
-			pam = self.__get_pam_name(arg)
-
-			if pam not in (param, "_%s" % param):
+			if deps[-1] in param_names:
+				deps = deps[:-1]
+		
+		# Compute required arguments for functional argument
+		params = self.__get_params(deps, kwargs)
+		args = [val for val in [params[self.__get_pam_name(x)] for x in deps]]
+		
+		if param in kwargs: # Invert and return updated parameter values
+			r = f(*args)
+			if type(r) not in (list,tuple):
+				r = (r,)
+			
+			inverse = {}
+			
+			for i, arg in enumerate(deps[:-1]): # Iterate through results except for final dep which is param or _param
+				pam = self.__get_pam_name(arg)
 				inverse[pam] = self.__get_quantity(r[i], param=pam)
-		return inverse
+			
+			return inverse
+		else: # Return value of function (from cache if possible)
+			if param in self.__cache_funcs:
+				cached = self.__cache_func_handler(param=param, params=args)
+				if cached is not None:
+					return {param: cached}
+				else:
+					value = f(*args)
+					self.__cache_func_handler(param=param, value=value, params=args)
+					return {param: value}
+			else:
+				return {param: f(*args)}
+		
 
 	def __cache_func_handler(self, param, value=None, params=None):
 		'''
@@ -861,15 +863,18 @@ class Parameters(object):
 
 		return q
 
-	def __eval(self, arg, kwargs={}):
-
+	def __eval(self, arg, kwargs={}, default_scaled=None):
+		
+		if default_scaled is None:
+			default_scaled= self.__default_scaled
+		
 		t = type(arg)
 
 		if t == tuple:
-			return self.__get_quantity((self.__eval(arg[0], kwargs), arg[1]), scaled=self.__default_scaled)
+			return self.__get_quantity((self.__eval(arg[0], kwargs), arg[1]), scaled=default_scaled)
 
 		elif isinstance(arg, Quantity):
-			return self.__get_quantity(arg, scaled=self.__default_scaled)
+			return self.__get_quantity(arg, scaled=default_scaled)
 
 		elif t == types.FunctionType:
 			deps = self.__function_getargs(arg)
@@ -1015,7 +1020,7 @@ class Parameters(object):
 
 		args = list(self.__function_getargs(f))
 
-		while param in args:
+		if param in args:
 			args.remove(param)
 
 		if forbidden is None:
