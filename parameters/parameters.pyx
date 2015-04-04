@@ -1637,32 +1637,53 @@ class Parameters(object):
 			return q.value
 		return q
 
-	def optimise(self, param):
+	def optimise(self, param, *wrt, **params):
 		'''
-		optimise(param)
-
-		:param param: Any parameter specification that is accepted by parameter retrieval.
-		:param type: object
-
-		:returns: A python function that can be passed to a Parameters instance for Parameters retrieval, or a string if the :class:`param` consisted of a single parameter name.
-		:raises: ExpressionOptimisationError
+		optimise(param, *wrt, **params)
 
 		This method returns either a function or string depending on whether
 		the input :class:`param` consisted of more than a single parameter. For
 		symbolic expressions, this can greatly speed up parameter retrieval. A
-		similar mechanism is used internally to make parameter lookups fast.
+		similar mechanism is used internally to make parameter lookups fast. Additionally,
+		it can pre-evaluate parameters that do not depend upon a parameter listed
+		in `wrt`, subject to the parameter overrides of `params`. If `wrt` is not provided,
+		only the functionalisation of the string representation of an expression is performed.
+
+		:param param: Any parameter specification that is accepted by parameter retrieval.
+		:param type: object
+		:param wrt: Parameters for which all dependees should be preserved as variables.
+		:type wrt: tuple
+		:param params: Parameter overrides to use for the check as to whether a parameter 
+			is dependent on one of the parameters in `wrt`.
+		:type params: dict
+
+		:returns: A python function that can be passed to a Parameters instance for Parameters retrieval, or a string if the :class:`param` consisted of a single parameter name.
+		:raises: ExpressionOptimisationError
 
 		For example:
 
 		>>> p.optimise('sin(x)*exp(-t)')
 		< function with arguments x and t >
+
+		>>> p.optimise('sin(x)*exp(-t)','t',x=1)
+		<function with argument t, with x evaluated to 1>
 		'''
 
 		if param is None or isinstance(param, types.FunctionType) or isinstance(param, str) and self.__is_valid_param(param):
 			return param
 
 		elif isinstance(param, str) or type(param).__module__.startswith('sympy'):
-			return self.__sympy_to_function(param)
+			if len(wrt) > 0:
+				subs = {}
+				expr = sympy.S(param, locals=sympy.abc._clash)
+				for symbol in expr.free_symbols:
+					symbol = str(symbol)
+					if symbol in self and self.is_constant(symbol, *wrt, **params):
+						subs[symbol] = self.__get(str(symbol), params)
+				expr = expr.subs(subs)
+			else:
+				expr = param
+			return self.__sympy_to_function(expr)
 
 		raise errors.ExpressionOptimisationError("No way to optimise parameter expression: %s ." % param)
 
@@ -1739,12 +1760,14 @@ class Parameters(object):
 			return True
 		return False
 
-	def is_constant(self, *args, **params):
+	def is_constant(self, param, *wrt, **params):
 		'''
 		is_constant(*args, **params)
 
-		:param args: Sequence of parameter names.
-		:type args: tuple
+		:param param: The param for which to test constancy.
+		:type param: str
+		:param wrt: A sequence of parameter names, with respect to which `param` should be constant.
+		:type wrt: tuple
 		:param params: Dictionary of parameter value overrides.
 		:type params: dict
 
@@ -1760,15 +1783,6 @@ class Parameters(object):
 		>>> p.is_constant('x','t',x=1)
 		True
 		'''
-		param, wrt = None, []
-		if len(args) == 0:
-			raise ValueError("A parameter must be specified. Additional parameters may be passed, in which case this function returns true iff the parameter is constant with respect to to all additional parameters.")
-		if len(args) == 1:
-			param = args[0]
-		elif len(args) >= 2:
-			param = args[0]
-			wrt = args[1:]
-
 		if len(wrt) == 0:
 			return True
 		if param in wrt:
