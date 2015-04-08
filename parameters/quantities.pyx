@@ -13,7 +13,7 @@ class Quantity(object):
 	A Quantity object represents a physical quantity; that is, one with both
 	a value and dimensions. It is able to convert between different united
 	representations; and keeps track of units in basic arithmetic.
-	
+
 	:param value: The value of the physical quantity in units of 'units'. Can be any python object conforming to standard numeric operations.
 	:type value: Numeric
 	:param units: A representation of the units of the object. See documentation of 'Units' for more information.
@@ -33,6 +33,10 @@ class Quantity(object):
 		SIUnitDispenser; a unit dispenser prepopulated with SI units. In the rest
 		of this documentation we use :class:`SIQuantity` for brevity.
 
+		.. note:: Instantiating a `UnitDispenser` instance will be the slowest part
+			of instantiating a `Quantity`; so in circumstances where performance is required,
+			providing an already instantiated `UnitDispenser` instance is a good idea.
+
 	Accessing value and units separately:
 		You can extract the value and units of a Quantity object separately by
 		accessing the 'value' and 'units' attributes of the object.
@@ -40,7 +44,7 @@ class Quantity(object):
 		>>> SIQuantity(1,'ms').value
 		1
 		>>> SIQuantity(1,'ms').units
-		'ms'
+		ms
 
 	Unit conversion:
 		You can convert a Quantity object to another Quantity object with different
@@ -118,12 +122,57 @@ class Quantity(object):
 			raise errors.QuantityValueError("A quantity's value must not be None.")
 		if isinstance(value, (list, tuple)):
 			value = np.array(value)
+
+		self.dispenser = dispenser
 		self.value = value
-		self._dispenser = dispenser if dispenser is not None else self._fallback_dispenser()
+		self.units = units
+
+	@property
+	def value(self):
+		'''
+		The value (or magnitude) of the quantity in the current units.
+
+		You can update this value using:
+
+		>>> quantity.value = <value>
+		'''
+		return self.__value
+	@value.setter
+	def value(self, value):
+		self.__value = value
+
+	@property
+	def units(self):
+		'''
+		The units of the quantity.
+
+		You can update the units (maintaining the current value) using:
+
+		>>> quantity.units = <Units object or string representation>
+		'''
+		return self.__units
+	@units.setter
+	def units(self, units):
 		if not isinstance(units, Units):
-			self.units = self._dispenser(units)
+			self.__units = self.dispenser(units)
 		else:
-			self.units = units
+			self.__units = units
+
+	@property
+	def dispenser(self):
+		'''
+		The `UnitDispenser` instance used to generate units from string representations.
+
+		You can update this reference using:
+
+		>>> quantity.dispenser = <UnitDispenser instance>
+		'''
+		return self.__dispenser
+	@dispenser.setter
+	def dispenser(self, dispenser):
+		if dispenser is not None and not isinstance(dispenser, UnitDispenser):
+			raise ValueError("Quantity objects require a `UnitDispenser` instance.")
+		self.__dispenser = dispenser if dispenser is not None else self._fallback_dispenser()
 
 	def basis(self):
 		'''
@@ -139,13 +188,13 @@ class Quantity(object):
 		return self(self.units.basis())
 
 	def _new(self, value, units, dispenser=None):
-		return Quantity(value, units, dispenser=self._dispenser if dispenser is None else dispenser)
+		return Quantity(value, units, dispenser=self.dispenser if dispenser is None else dispenser)
 
 	def _fallback_dispenser(self):
 		return UnitDispenser()
 
 	def __call__(self, units, dispenser=None):
-		dispenser = dispenser if dispenser is not None else self._dispenser
+		dispenser = dispenser if dispenser is not None else self.dispenser
 		if not isinstance(units, Units):
 			units = dispenser(units)
 		return self._new(self.value / units.scale(self.units), units, dispenser)
