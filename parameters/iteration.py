@@ -164,7 +164,7 @@ class RangesIterator(object):
 		return self.__ranges
 	@ranges.setter
 	def ranges(self, ranges):
-		if isinstance(ranges,dict):
+		if isinstance(ranges, dict):
 			ranges = [ranges]
 		self.__ranges = ranges
 		self.__ranges_eval = None
@@ -284,7 +284,7 @@ class RangesIterator(object):
 		        [(1.0, 3.0), (1.0, 4.0)]],
 		       dtype=[('x', '<f8'), ('y', '<f8')]), [(0, 0), (0, 1), (1, 0), (1, 1)])
 		'''
-		return self.__ranges_expand(masks=self.masks,params=self.params.copy(),ranges_eval=self.__ranges_eval)
+		return self.__ranges_expand(masks=self.masks, params=self.params.copy(), ranges_eval=self.__ranges_eval)
 
 	@property
 	def progress(self):
@@ -304,7 +304,7 @@ class RangesIterator(object):
 	def progress(self, progress):
 		self.__progress = progress
 
-	def __ranges_expand(self,level=0,iteration=tuple(),masks=None,indices=None,params=None,ranges_eval=None):
+	def __ranges_expand(self, level=0, iteration=tuple(), masks=None, indices=None, params=None, ranges_eval=None):
 		'''
 		This method generates a list of different parameter configurations
 		'''
@@ -315,19 +315,19 @@ class RangesIterator(object):
 
 		pam_ranges = self.ranges[level]
 
-		## Interpret ranges
+		# # Interpret ranges
 		pam_values = {}
 		count = None
 
 		for param, pam_range in pam_ranges.items():
-			if ranges_eval is not None and ranges_eval.ndim == len(self.ranges) and param in ranges_eval.dtype.fields.keys() and not np.any(np.isnan(ranges_eval[param])): # If values already exist in ranges_eval, reuse them
-				pam_values[param] = ranges_eval[param][iteration + (slice(None),) + tuple([0]*(ranges_eval.ndim-len(iteration)-1))]
+			if ranges_eval is not None and ranges_eval.ndim == len(self.ranges) and param in ranges_eval.dtype.fields.keys() and not np.any(np.isnan(ranges_eval[param])):  # If values already exist in ranges_eval, reuse them
+				pam_values[param] = ranges_eval[param][iteration + (slice(None),) + tuple([0] * (ranges_eval.ndim - len(iteration) - 1))]
 
 		tparams = params.copy()
 		tparams.update(pam_ranges)
 		tparams.update(pam_values)
 
-		pam_values = self.p.range(pam_ranges.keys(),**tparams)
+		pam_values = self.p.range(pam_ranges.keys(), **tparams)
 
 		c = len(pam_values[param])
 		count = c if count is None else count
@@ -341,64 +341,69 @@ class RangesIterator(object):
 			current_iteration = iteration + (i,)
 
 			# Generate slice corresponding all the components of range_eval this iteration affects
-			s = current_iteration + tuple([slice(None)]*(ranges_eval.ndim-len(current_iteration)))
+			s = current_iteration + tuple([slice(None)] * (ranges_eval.ndim - len(current_iteration)))
 
 			# Update parameters
 			for param, pam_value in pam_values.items():
 				ranges_eval[param][s] = pam_value[i]
 				if np.isnan(pam_value[i]):
-					raise ValueError ("Bad number for parameter %s @ indices %s"% (param,str(current_iteration)))
+					raise ValueError("Bad number for parameter %s @ indices %s" % (param, str(current_iteration)))
 
 				params[param] = pam_value[i]
 
 			if level < len(self.ranges) - 1:
 				# Recurse problem
-				ranges_eval,_ = self.__ranges_expand(level=level+1,iteration=current_iteration,indices=indices,params=params,masks=masks,ranges_eval=ranges_eval)
+				ranges_eval, _ = self.__ranges_expand(level=level + 1, iteration=current_iteration, indices=indices, params=params, masks=masks, ranges_eval=ranges_eval)
 			else:
-				if masks is not None and isinstance(masks,list):
-					if not any( [mask(indices=current_iteration,ranges=self.ranges,params=params) for mask in masks] ):
+				if masks is not None and isinstance(masks, list):
+					if not any([mask(indices=current_iteration, ranges=self.ranges, params=params) for mask in masks]):
 						continue
 
-				indices.append( current_iteration )
+				indices.append(current_iteration)
 
 		return ranges_eval, indices
 
-	def __extend_ranges(self,ranges_eval,labels,size):
-		dtype_delta = [(label,float) for label in labels]
+	def __extend_ranges(self, ranges_eval, labels, size):
+		dtype_delta = [(label, float) for label in labels]
 		if ranges_eval is None:
-			ranges_eval = np.zeros(size,dtype=dtype_delta)
+			ranges_eval = np.zeros(size, dtype=dtype_delta)
 			ranges_eval.fill(np.nan)
 		else:
 			final_shape = ranges_eval.shape + (size,)
-			ranges_eval = np.array(np.repeat(ranges_eval,size).reshape(final_shape),dtype=ranges_eval.dtype.descr + dtype_delta)
+			ranges_eval = np.array(np.repeat(ranges_eval, size).reshape(final_shape), dtype=ranges_eval.dtype.descr + dtype_delta)
 		for label in labels:
 			ranges_eval[label].fill(np.nan)
 		return ranges_eval
 
-	def __index_to_dict(self,index,ranges_eval):
+	def __index_to_dict(self, index, ranges_eval):
 		params = {}
 		vs = ranges_eval[index]
 		names = ranges_eval.dtype.names
-		for i,param in enumerate(names):
+		for i, param in enumerate(names):
 			params[param] = vs[i]
+		return params
+
+	def __get_params_for_index(self, index, ranges_eval):
+		params = self.params.copy()
+		params.update(self.__index_to_dict(index, ranges_eval))
 		return params
 
 	def __iter__(self,):
 		ranges_eval, indices = self.ranges_expand()
 
 		start_time = datetime.datetime.now()
-		if self.nprocs not in [0,1] and self.function is not None:
+		if self.nprocs not in [0, 1] and self.function is not None:
 			from .utility.symmetric import AsyncParallelMap
-			apm = AsyncParallelMap(self.function,progress=self.progress,nprocs=self.nprocs,spawnonce=True)
+			apm = AsyncParallelMap(self.function, progress=self.progress, nprocs=self.nprocs, spawnonce=True)
 
-			for res in apm.iterate([(i,tuple(),{'params':self.__index_to_dict(i,ranges_eval)}) for i in indices],count_offset=0,count_total=len(indices),start_time=start_time, base_kwargs=self.function_kwargs ):
+			for res in apm.iterate([(i, tuple(), {'params':self.__get_params_for_index(i, ranges_eval)}) for i in indices], count_offset=0, count_total=len(indices), start_time=start_time, base_kwargs=self.function_kwargs):
 				yield res
 		else:
 			for i, index in enumerate(indices):
 				if self.function is None:
-					yield (index, self.__index_to_dict(index,ranges_eval) )
+					yield (index, self.__index_to_dict(index, ranges_eval))
 				else:
-					yield (index, self.function(params=self.__index_to_dict(index,ranges_eval),**self.function_kwargs))
+					yield (index, self.function(params=self.__index_to_dict(index, ranges_eval), **self.function_kwargs))
 				if self.progress is not False:
 					if self.progress is True:
 						self.__print_progress_fallback(len(indices), i + 1, start_time)
@@ -412,16 +417,16 @@ class RangesIterator(object):
 								progress * 100,
 								completed,
 								total,
-								resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024.)
+								resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.)
 						)
 
 		if progress > 0:
 			delta = datetime.datetime.now() - start_time
-			delta = datetime.timedelta( delta.total_seconds()/24/3600 * (1-progress)/progress )
+			delta = datetime.timedelta(delta.total_seconds() / 24 / 3600 * (1 - progress) / progress)
 			sys.stderr.write(" | Remaining: %02dd:%02dh:%02dm:%02ds" % (
 					delta.days,
-					delta.seconds/3600,
-					delta.seconds/60 % 60,
+					delta.seconds / 3600,
+					delta.seconds / 60 % 60,
 					delta.seconds % 60
 				)
 			)
