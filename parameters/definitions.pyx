@@ -42,7 +42,7 @@ class SIUnitDispenser(UnitDispenser):
 		'''
 		This method is called by the :class:`UnitDispenser` constructor, at which
 		point this method populates the dispenser object with the SI units (and some
-		other common units). See the "Supported Units" chapter of the 
+		other common units). See the "Supported Units" chapter of the
 		python-parameters documentation for a list of supported units.
 		'''
 
@@ -124,7 +124,7 @@ class SIQuantity(Quantity):
 	'''
 
 	def _new(self, value, units, dispenser=None):
-		return SIQuantity(value, units, dispenser=self._dispenser if dispenser is None else dispenser)
+		return SIQuantity(value, units, dispenser=self.dispenser if dispenser is None else dispenser)
 
 	def _fallback_dispenser(self):
 		return SIUnitDispenser()
