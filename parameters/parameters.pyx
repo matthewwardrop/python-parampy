@@ -1606,7 +1606,7 @@ class Parameters(object):
 		convert(self,quantity,input=None, ouput=None, value=True)
 
 		:param quantity: The quantity to be converted.
-		:type quantity: :class:`Quantity`, or any pythonic numeric type.
+		:type quantity: :class:`Quantity`, `Quantity` tuple representation or any pythonic numeric type (including numpy arrays).
 		:param input: The units of the inputed quantity (ignored if input type is :class:`Quantity`).
 		:type input: :class:`None`, :class:`str`, or :class:`Units`
 		:param output: The units to convert toward.
@@ -1616,26 +1616,23 @@ class Parameters(object):
 
 		:returns: Pythonic number if :python:`value` is :python:`True`, and :class:`Quantity` otherwise.
 		'''
-
-		if isinstance(quantity, Quantity):
+		
+		if type(quantity) == tuple and len(quantity) == 2:
+			input = str(quantity[1])
+			quantity = quantity[0]
+		elif isinstance(quantity, Quantity):
 			input = str(quantity.units)
 			quantity = quantity.value
+		
+		if input is not None:
+			quantity /= self.__unit_scaling(self.__units(input))
 
-		if input is None and output is None:
-			return quantity
-
-		elif output is None:
-			return quantity / self.__unit_scaling(self.__units(input))
-
-		elif input is None:
-			q = self.__get_quantity(quantity, unit=output)
-
-		else:
-			q = Quantity(quantity, input, dispenser=self.__units)(output)
+		if output is not None:
+			quantity *= self.__unit_scaling(self.__units(output))
 
 		if value:
-			return q.value
-		return q
+			return quantity
+		return Quantity(quantity, output, dispenser=self.__units)
 
 	def optimise(self, param, *wrt, **params):
 		'''
