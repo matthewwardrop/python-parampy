@@ -1428,7 +1428,7 @@ class Parameters(object):
 			if type(argvs) == dict:
 				if values is None:
 					values = {}
-				for arg in pargs:
+				for arg in argvs:
 					if arg not in values:
 						values[arg] = []
 					values[arg].append(argvs[arg])
