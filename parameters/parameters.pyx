@@ -1616,14 +1616,17 @@ class Parameters(object):
 
 		:returns: Pythonic number if :python:`value` is :python:`True`, and :class:`Quantity` otherwise.
 		'''
-		
+
+		if type(quantity) == list:
+			return map(lambda q: self.convert(q, input, output, value), quantity)
+
 		if type(quantity) == tuple and len(quantity) == 2:
 			input = str(quantity[1])
 			quantity = quantity[0]
 		elif isinstance(quantity, Quantity):
 			input = str(quantity.units)
 			quantity = quantity.value
-		
+
 		if input is not None:
 			quantity /= self.__unit_scaling(self.__units(input))
 
