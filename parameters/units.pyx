@@ -185,6 +185,14 @@ class UnitDispenser(object):
 
 		In addition to being shorter, the Units object is cached in the UnitDispenser
 		object for future recall. See the documentation for :class:`Units` for more.
+
+		For non-compound units, you can also use:
+
+		>>> ud.km
+
+		Which is shorthand for:
+
+		>>> ud('km')
 	'''
 
 	def __init__(self):
@@ -398,6 +406,11 @@ class UnitDispenser(object):
 			return self.__cache[units]
 		return Units(units, dispenser=self)
 
+	def __getattr__(self, name):
+		if name[:2] == "__" or name[:14] == "_UnitDispenser":
+			raise AttributeError
+		return self(name)
+
 
 class Units(object):
 	'''
@@ -455,6 +468,15 @@ class Units(object):
 		J/s/nm
 		>>> u2**2
 		s^2*nm^2
+
+		If you multiply or divide a unit object by an object other than a `Units`
+		instance, a `Quantity` object will be returned. For example:
+
+		>>> 3 * ud.nm
+		3 nm
+
+		>>> ud.nm**2 / 2
+		0.5 nm^2
 
 	Units equality:
 		Units objects can also recognise when they are equal to other Units objects.
@@ -680,18 +702,29 @@ class Units(object):
 		return target
 
 	def __mul__(self, other):
+		if not isinstance(other,Units):
+			from .quantities import Quantity
+			return Quantity(other, self, dispenser=self.__dispenser)
 		return self.__new(self.__mul_units(self.units, other.units))
 
+	def __rmul__(self,other):
+		from .quantities import Quantity
+		return Quantity(other, self, dispenser=self.__dispenser)
+
 	def __div__(self, other):
+		if not isinstance(other,Units):
+			from .quantities import Quantity
+			return Quantity(1./other, self, dispenser=self.__dispenser)
 		return self.__new(self.__div_units(self.units, other.units))
+
+	def __rdiv__(self,other):
+		if other == 1:
+			return self.__pow__(-1)
+		from .quantities import Quantity
+		return Quantity(other, 1/self, dispenser=self.__dispenser)
 
 	def __truediv__(self, other):
 		return self.__div__(other)
-
-	def __rdiv__(self, other):
-		if other == 1:
-			return self.__pow__(-1)
-		raise ValueError("Units cannot have numerical size.")
 
 	def __rtruediv__(self, other):
 		return self.__rdiv__(other)
