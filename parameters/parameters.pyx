@@ -619,11 +619,12 @@ class Parameters(object):
 						return self.__cache_scaled[arg]
 				return self.__get_quantity(self.__parameters[arg], param=arg, scaled=scaled)
 
-	def __process_override(self, kwargs, restrict=None, abort_noninvertable=False):
+	def __process_override(self, kwargs, restrict=None):
 		'''
 		Process kwargs and make sure that if one of the provided overrides
 		corresponds to an invertable function, that the affected variables are also included
-		as overrides also. An warning is thrown if these variables are specified also.
+		as overrides also. An warning is thrown if these variables are specified also
+		and are inconsistent.
 		'''
 
 		if len(kwargs) == 0:
@@ -682,7 +683,7 @@ class Parameters(object):
 				dependencies[pam] = set(deps)
 
 		pam_order = pam_ordering(dependencies)
-		# print pam_order
+		
 		# First evaluate functions to avoid errors later on
 		for pam in pam_order:
 			if pam in kwargs:
@@ -693,6 +694,10 @@ class Parameters(object):
 
 		# Now, ratify these changes through the parameter sets to ensure
 		# that the effects of these overrides is properly implemented
+		# inverting any methods with the provided overrides
+		# and then recursing on any newly returned values.
+		# If a method is not invertible, and it is request, 
+		# print a warning to this extent.
 		new = {}
 		for pam in restrict:
 			if type(self.__parameters.get(pam)) is types.FunctionType:
@@ -703,8 +708,6 @@ class Parameters(object):
 							raise errors.ParameterOverSpecifiedError("Parameter %s is overspecified, with contradictory values. (%s vs. %s)" % (key,vals[key],kwargs[key] if key in kwargs else new[key]) )
 					new.update(vals)
 				except errors.ParameterNotInvertableError as e:
-					if abort_noninvertable:
-						raise e
 					warnings.warn(errors.ParameterInconsistentWarning("Parameters are probably inconsistent as %s was overridden, but is not invertable, and so the underlying variables (%s) have not been updated." % (pam, ','.join(self.__function_getargs(self.__parameters[pam])))))
 
 		if len(new) != 0:
@@ -953,7 +956,7 @@ class Parameters(object):
 
 		self.__check_valid_params(kwargs)
 
-		self.__process_override(kwargs, abort_noninvertable=True)
+		self.__process_override(kwargs)
 
 		for param, value in kwargs.items():
 			if param not in self.__parameters or not isinstance(self.__parameters.get(param), types.FunctionType):
