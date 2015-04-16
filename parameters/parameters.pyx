@@ -1019,9 +1019,19 @@ class Parameters(object):
 		return self.__sympy_to_function(expr)
 
 	def __check_function(self, param, f, forbidden=None):
-
+		
+		inspection = inspect.getargspec(f)
+		if inspection.varargs is not None or inspection.keywords is not None:
+			raise ValueError("Cannot add parameter function that uses varargs or keyword arguments for '%s'." % param)
+		if param in inspection.args and inspection.args.index(param) != len(inspection.args) - 1:
+			raise ValueError("Self-reference for inversion must be the last parameter provided in args for '%s'." % param)
+		if param in inspection.args and inspection.defaults != (None,):
+			raise ValueError("Cannot add parameter function that does not set a default value of None for self-referential parameter in definition for '%s'." % param)
+		if param not in inspection.args and inspection.defaults != None:
+			raise ValueError("Cannot add parameter function that provides default values for parameters in '%s'." % param)
+		
 		args = list(self.__function_getargs(f))
-
+		
 		if param in args:
 			args.remove(param)
 
