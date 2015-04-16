@@ -708,7 +708,7 @@ class Parameters(object):
 							raise errors.ParameterOverSpecifiedError("Parameter %s is overspecified, with contradictory values. (%s vs. %s)" % (key,vals[key],kwargs[key] if key in kwargs else new[key]) )
 					new.update(vals)
 				except errors.ParameterNotInvertableError as e:
-					warnings.warn(errors.ParameterInconsistentWarning("Parameters are probably inconsistent as %s was overridden, but is not invertable, and so the underlying variables (%s) have not been updated." % (pam, ','.join(self.__function_getargs(self.__parameters[pam])))))
+					warnings.warn(errors.ParameterInconsistentWarning("Parameters are possibly inconsistent! The function representing '%s' was overridden because it was not invertable, and so the underlying variables (%s) have not been updated." % (pam, ','.join(self.__function_getargs(self.__parameters[pam])))))
 
 		if len(new) != 0:
 			kwargs.update(new)
