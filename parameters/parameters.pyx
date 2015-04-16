@@ -508,7 +508,7 @@ class Parameters(object):
 
 			value = self.__parameters[param]
 			if type(value) == types.FunctionType:
-				self.__cache_deps[param] = self.__function_getargs(value)
+				self.__cache_deps[param] = map(self.__get_pam_name, self.__function_getargs(value))
 			else:
 				self.__cache_deps[param] = []
 
@@ -701,13 +701,13 @@ class Parameters(object):
 		new = {}
 		for pam in restrict:
 			if type(self.__parameters.get(pam)) is types.FunctionType:
-				try:
+				if pam in self.__get_pam_deps(pam):
 					vals = self.__eval_function(pam, kwargs)
 					for key in vals:
 						if key in kwargs and self.__get_quantity(vals[key],scaled=True) != self.__get_quantity(kwargs[key],scaled=True) or key in new and self.__get_quantity(vals[key],scaled=True) != self.__get_quantity(new[key],scaled=True):
 							raise errors.ParameterOverSpecifiedError("Parameter %s is overspecified, with contradictory values. (%s vs. %s)" % (key,vals[key],kwargs[key] if key in kwargs else new[key]) )
 					new.update(vals)
-				except errors.ParameterNotInvertableError as e:
+				else:
 					warnings.warn(errors.ParameterInconsistentWarning("Parameters are possibly inconsistent! The function representing '%s' was overridden because it was not invertable, and so the underlying variables (%s) have not been updated." % (pam, ','.join(self.__function_getargs(self.__parameters[pam])))))
 
 		if len(new) != 0:
@@ -725,14 +725,13 @@ class Parameters(object):
 
 		f = self.__parameters.get(param)
 		deps = self.__get_pam_deps(param)
-		param_names = (param, '_%s' % param)
 
 		# Check if we are inverting or evaluating (if param is in kwargs, we are inverting), and prepare.
 		if param in kwargs:
-			if deps[-1] not in param_names:
+			if deps[-1] == param:
 				raise errors.ParameterNotInvertableError("Configuration requiring the inverting of a non-invertable map for %s." % param)
 		else:
-			if deps[-1] in param_names:
+			if deps[-1] == param:
 				deps = deps[:-1]
 		
 		# Compute required arguments for functional argument
@@ -959,7 +958,7 @@ class Parameters(object):
 		self.__process_override(kwargs)
 
 		for param, value in kwargs.items():
-			if param not in self.__parameters or not isinstance(self.__parameters.get(param), types.FunctionType):
+			if param not in self.__parameters or not (isinstance(self.__parameters.get(param), types.FunctionType) and param in self.__get_pam_deps(param)):
 				self.__set({param: kwargs[param]})
 
 	def __and__(self, other):
