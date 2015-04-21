@@ -180,10 +180,10 @@ class TestParameters(unittest.TestCase):
 			self.p << {'asd%WAD':1}
 		self.assertRaises(errors.ParameterInvalidError, bad)
 
-	def test_noninvertable_functions(self):
-		self.p << {'J_1': lambda t: t**2}
-		self.assertRaises(errors.ParameterNotInvertableError, self.p, J_1=1)
-		self.assertEqual(self.p('_J_1',J_1=1),1.)
+	# def test_noninvertable_functions(self): # Now permissable
+	# 	self.p << {'J_1': lambda t: t**2}
+	# 	self.assertRaises(errors.ParameterNotInvertableError, self.p, J_1=1)
+	# 	self.assertEqual(self.p('_J_1',J_1=1),1.)
 
 	def test_asvalue(self):
 		self.p(x=(1,'J'))
