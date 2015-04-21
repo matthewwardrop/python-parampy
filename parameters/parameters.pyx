@@ -448,7 +448,12 @@ class Parameters(object):
 	################## ENABLE USE WITH 'with' ####################################
 
 	def __enter__(self):
-		self.__context_save = {
+		try:
+			self.__context_save
+		except:
+			self.__context_save = []
+
+		self.__context_save.append({
 			'parameters_spec': copy.copy(self.__parameters_spec),
 			'parameters': copy.copy(self.__parameters),
 			'parameters_bounds': copy.copy(self.__parameters_bounds),
@@ -456,27 +461,29 @@ class Parameters(object):
 			'units': copy.copy(self.__units),
 			'units_custom': copy.copy(self.__units_custom),
 			'default_scaled': copy.copy(self.__default_scaled),
-		}
+		})
 
 	def __exit__(self, type, value, traceback):
 
+		context = self.__context_save.pop()
+
 		# Restore context
-		self.__parameters_spec = self.__context_save['parameters_spec']
-		self.__parameters = self.__context_save['parameters']
-		self.__parameters_bounds = self.__context_save['parameters_bounds']
-		self.__scalings = self.__context_save['scalings']
-		self.__units = self.__context_save['units']
-		self.__units_custom = self.__context_save['units_custom']
-		self.__default_scaled = self.__context_save['default_scaled']
+		self.__parameters_spec = context['parameters_spec']
+		self.__parameters = context['parameters']
+		self.__parameters_bounds = context['parameters_bounds']
+		self.__scalings = context['scalings']
+		self.__units = context['units']
+		self.__units_custom = context['units_custom']
+		self.__default_scaled = context['default_scaled']
 
 		# Remove context
-		del self.__context_save
+		if len(self.__context_save) == 0:
+			del self.__context_save
 
 		# Clear cache
 		self.__cache_deps = {}
 		self.__cache_sups = {}
 		self.__cache_scaled = {}
-
 		self.__scaling_cache = {}
 
 	############# PARAMETER RESOLUTION #########################################
@@ -696,7 +703,7 @@ class Parameters(object):
 		# that the effects of these overrides is properly implemented
 		# inverting any methods with the provided overrides
 		# and then recursing on any newly returned values.
-		# If a method is not invertible, and it is request, 
+		# If a method is not invertible, and it is request,
 		# print a warning to this extent.
 		new = {}
 		for pam in restrict:
