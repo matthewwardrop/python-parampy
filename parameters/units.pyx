@@ -1,5 +1,5 @@
 from fractions import Fraction
-import re
+import re, types
 
 from . import errors
 from .text import colour_text
@@ -7,7 +7,7 @@ from .text import colour_text
 
 class Unit(object):
 	'''
-	Unit (name,abbr=None,rel=1.0,prefixable=True,plural=None,dimensions={})
+	Unit (name,abbr=None,rel=1.0,prefixable=True,plural=None,dimensions={},base_unit=None)
 
 	:class:`Unit` is the fundamental object which represents a single unit in units
 	specification. For example, in "m*s", each of "m" and "s" would have their own
@@ -23,8 +23,10 @@ class Unit(object):
 	:type prefixable: bool
 	:param plural: When written in full, use this string as the plural unit. Note that when this is not provided, where implemented, an 's' is appended to the unit.
 	:type plural: str
-	:param dimensions: A dictionary specfification of the dimensions of this unit.
+	:param dimensions: A dictionary specification of the dimensions of this unit.
 	:type dimensions: dict
+	:param base_unit: A Unit object corresponding to the base unit (if this unit is prefixed), or None otherwise.
+	:type base_unit: Unit
 
 	To instantiate a :class:`Unit` object, you can use something like:
 	>>> u = Unit('metre',abbr='m',rel=1.0,dimensions={'length':1})
@@ -37,7 +39,7 @@ class Unit(object):
 	specified in the key should be taken.
 	'''
 
-	def __init__(self, name=None, abbr=None, rel=1.0, prefixable=True, plural=None, dimensions=None):
+	def __init__(self, name=None, abbr=None, rel=1.0, prefixable=True, plural=None, dimensions=None, base_unit=None):
 		self.name = name
 		self.abbr = abbr
 		self.plural = plural
@@ -46,6 +48,8 @@ class Unit(object):
 		self.prefixable = prefixable
 
 		self.dimensions = dimensions
+		
+		self.base_unit = base_unit if base_unit is not None else self
 
 	@property
 	def name(self):
@@ -199,6 +203,11 @@ class UnitDispenser(object):
 		self._dimensions = {}
 		self._units = {}
 		self._prefixes = []
+		
+		self._scalings = {}
+		self._conversions = {}
+		self.__convertable_units = []
+		self.__conversions_cache = {}
 
 		self.__cache = {}
 
@@ -278,11 +287,224 @@ class UnitDispenser(object):
 						abbr=self.__generate_units(unit.abbrs, prefix[1]),
 						plural=self.__generate_units(unit.plural, prefix[0]),
 						rel=unit.rel * prefix[2],
-						prefixable=False
+						prefixable=False,
+						base_unit=unit
 					).set_dimensions(**unit.dimensions),
 					check=False)
 
 		return self
+	
+	def add_scaling(self, dim_from, dim_to, scaling, context=None):
+		'''
+		add_scaling(dim_from, dim_to, scaling, context=None)
+		
+		:param dim_from: A dictionary of dimensions from which scaling will be provided to `dim_to`.
+		:type dim_from: dict
+		:param dim_to: A dictionary of dimensions to which scaling will be provided from `dim_from`.
+		:type dim_to: dict
+		:param scaling: The scaling to be acquired.
+		:type scaling: float
+		:param context: The context to which this scaling belongs.
+		:type context: string
+		
+		This method adds a scaling between units of different dimensions that 
+		can be used to simplify computations in different physical contexts.
+		For example, in many condensed matter physics, energies are often
+		discussed as frequencies (and vice versa).
+		
+		Using:
+		
+		>>> ud.add_scaling( ud.joule.dimensions, ud.hertz.dimensions, 1./2/hbar/pi, context='condensed_matter' )
+		
+		Will allow you to do:
+	
+		>>> SIQuantity( 2, 'J' )('GHz', context='condensed_matter')
+		'''
+		assert(type(dim_from) == dict)
+		assert(type(dim_to) == dict)
+		if context not in self._scalings:
+			self._scalings[context] = []
+		self._scalings[context].append( (dim_from, dim_to, scaling) )
+			
+	def is_scalable(self, dim_from, dim_to, context=None):
+		'''
+		is_scalable(dim_from, dim_to, context=None)
+		
+		:param dim_from: A dictionary of dimensions from which scaling to `dim_to` will be tested.
+		:type dim_from: dict
+		:param dim_to: A dictionary of dimensions to which scaling from `dim_from` will be tested.
+		:type dim_to: dict
+		:param context: The context in which to test this scaling.
+		:type context: str
+		
+		This method returns `True` if there is a special scaling specified
+		between the dimensions provided.
+		'''
+		try:
+			self.scale(dim_from, dim_to, context=context)
+			return True
+		except:
+			return False
+	
+	def scale(self, dim_from, dim_to, context=None):
+		'''
+		scale(dim_from, dim_to, context=None)
+		
+		:param dim_from: A dictionary of dimensions from which to scale.
+		:type dim_from: dict
+		:param dim_to: A dictionary of dimensions to which to scale.
+		:type dim_to: dict
+		:param context: The context in which to provide this scaling.
+		:type context: str
+		
+		This method returns a float corresponding to a scaling from the 
+		dimensions provided, as specified using `UnitDispenser.add_scaling`.
+		'''
+		if context in self._scalings:
+			for scaling in self._scalings[context]:
+				if dim_from == scaling[0] and dim_to == scaling[1]:
+					return scaling[2]
+				elif dim_from == scaling[1] and dim_to == scaling[0]:
+					return 1./scaling[2]
+		
+		if context is not None:
+			return self.scale(dim_from, dim_to)
+		
+		raise ValueError("No scaling between dimensions %s and %s are possible." % (dim_from, dim_to))
+	
+	def add_conversion_map(self, unit_from, unit_to, mapping, absolute=False, context=None):
+		'''
+		add_conversion_map(unit_from, unit_to, mapping, absolute=True, context=None)
+		
+		:param unit_from: The units from which to convert.
+		:type dim_from: str or Units
+		:param unit_to: The units to which to convert.
+		:type dim_to: str or Units
+		:param mapping: A callable that takes a single value in units `unit_from`
+			and returns a value with units `unit_to`.
+		:type mapping: callable
+		:param absolute: Whether the map provided is for units with an absolute scale
+			or a relative one (i.e. fahrenheit -> celcius depends on whether 
+			stored values are absolute or delta values).
+		:type absolute: bool
+		:param context: The context in which to provide this conversion.
+		:type context: str
+		
+		This method adds a potentially non-linear mapping between units that 
+		can be used to simplify computations in different physical contexts.
+		For example, it may be useful to use store data in 'decibels', and later
+		convert this to a linear value. This can be handled automatically.
+		
+		Using:
+		
+		>>> ud.add_scaling( 'dB', '', lambda v: 10**(v/10.), absolute=True, context=None )
+		
+		Will allow you to do:
+	
+		>>> SIQuantity( 1, 'dB' )('')
+		
+		'''
+		# TODO: Add checks
+		if context not in self._conversions:
+			self._conversions[context] = []
+		self._conversions[context].append( ( self(unit_from), self(unit_to), mapping, absolute) )
+		self.__convertable_units.append(self(unit_from))
+	
+	def has_conversion_map(self, unit_from, unit_to, absolute=False, context=None):
+		'''
+		has_conversion_map(unit_from, unit_to, absolute=True, context=None)
+		
+		:param unit_from: The units from which to convert.
+		:type dim_from: str or Units
+		:param unit_to: The units to which to convert.
+		:type dim_to: str or Units
+		:param absolute: Whether the map found is an an absolute conversion
+			or a relative one (i.e. fahrenheit -> celcius depends on whether 
+			stored values are absolute or delta values).
+		:type absolute: bool
+		:param context: The context in which to provide this conversion.
+		:type context: str
+		
+		This method returns `True` if there exists a conversion between the provided
+		units, as specified using `UnitDispenser.add_conversion_map`.
+		'''
+		try:
+			self.conversion_map(unit_from, unit_to, absolute=True, context=context)
+			return True
+		except:
+			return False
+	
+	def conversion_map(self, unit_from, unit_to, absolute=False, context=None):
+		'''
+		conversion_map(unit_from, unit_to, absolute=True, context=None)
+		
+		:param unit_from: The units from which to convert.
+		:type dim_from: str or Units
+		:param unit_to: The units to which to convert.
+		:type dim_to: str or Units
+		:param absolute: Whether the map found should be for an absolute conversion
+			or a relative one (i.e. fahrenheit -> celcius depends on whether 
+			stored values are absolute or delta values).
+		:type absolute: bool
+		:param context: The context in which to provide this conversion.
+		:type context: str
+		
+		This method returns a function that when called upon the value associated
+		with a quantity of units `unit_from` will return the appropriate value
+		for a new quantity with units `unit_to`. This method only returns
+		such a function for definitions provided to `UnitDispenser.add_conversion_map`.
+		'''
+		unit_from, unit_to = self(unit_from), self(unit_to)
+		if unit_from not in self.__convertable_units:
+			raise ValueError("No mapping known between %s and %s" % (unit_from, unit_to))
+		
+		check = False
+		try:
+			c = self.__conversions_cache[context][unit_from][unit_to][absolute]
+			if c is None:
+				check=False
+			else:
+				return c
+		except KeyError:
+			check = True
+		
+		if check and context in self._conversions:
+			unit_from, unit_to = self(unit_from), self(unit_to)
+			m = lambda u: u.base_unit.name
+			
+			c = None
+			for conversion in self._conversions[context]:
+				if conversion[-1] != absolute:
+					continue
+				# Try to convert current unit to stored unit
+				try:
+					assert(sorted(map(m, conversion[0].units.keys())) == sorted(map(m, unit_from.units.keys())))
+					assert(sorted(map(m, conversion[1].units.keys())) == sorted(map(m,unit_to.units.keys())))
+					pre_scaling = unit_from.scale(conversion[0])
+					post_scaling = unit_to.scale(conversion[1])
+					
+					c = lambda v: conversion[2](pre_scaling*v)/post_scaling
+					
+					break
+					
+				except:
+					pass
+			
+			if context not in self.__conversions_cache:
+				self.__conversions_cache[context] = {}
+			if unit_from not in self.__conversions_cache[context]:
+				self.__conversions_cache[context][unit_from] = {}
+			if unit_to not in self.__conversions_cache[context][unit_from]:
+				self.__conversions_cache[context][unit_from][unit_to] = {}
+			self.__conversions_cache[context][unit_from][unit_to][absolute] = c
+			
+			if c is not None:
+				return c
+		
+		if context is not None:
+			return self.conversion_map(unit_from, unit_to)
+		
+		raise ValueError("No mapping known between %s and %s" % (unit_from, unit_to))
 
 	def __generate_units(self, names, prefixes):
 		if names is None or prefixes is None:
@@ -562,9 +784,6 @@ class Units(object):
 
 		items = sorted(self.__units.items())
 
-		if self.dimensions == {}:
-			return "units"
-
 		for unit, power in items:
 			if power > 0:
 				if power != 1:
@@ -579,13 +798,13 @@ class Units(object):
 					output += "/%s^%s" % (unit.abbr, abs(power))
 				else:
 					output += "/%s" % unit.abbr
-
+		
 		return output
 
 	def __str__(self):
 		return unicode(self).encode('utf-8')
 
-	def scale(self, other):
+	def scale(self, other, context=None, value=None):
 		'''
 		scale(other)
 
@@ -610,11 +829,20 @@ class Units(object):
 
 			dims = self.dimensions
 			dims_other = other.dimensions
+			
+			scale = None
+			try:
+				scale = self.__dispenser.scale(dims, dims_other, context=context)
+			except ValueError:
+				pass
 
 			# If the union of the sets of dimensions is less than the maximum size of the dimensions; then clearly the units are the same.
-			if len(set(dims.items()) & set(dims_other.items())) < max(len(dims), len(dims_other)):
-				raise errors.UnitConversionError("Invalid conversion. Units '%s' and '%s' do not match. %s" % (self, other, set(dims.items()) & set(dims_other.items())))
-			self.__scale_cache[other] = self.rel / other.rel
+			if scale is None:
+				if len(set(dims.items()) & set(dims_other.items())) < max(len(dims), len(dims_other)):
+					raise errors.UnitConversionError("Invalid conversion. Units '%s' and '%s' do not match. %s" % (self, other, set(dims.items()) & set(dims_other.items())))
+				self.__scale_cache[other] = self.rel / other.rel
+			else:
+				self.__scale_cache[other] = self.rel / other.rel * scale
 			return self.__scale_cache[other]
 
 	@property

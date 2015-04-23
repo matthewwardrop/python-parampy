@@ -1,8 +1,9 @@
 # coding=utf-8
 
+import math
+
 from .units import UnitDispenser, Unit
 from .quantities import Quantity
-
 
 class SIUnitDispenser(UnitDispenser):
 	'''
@@ -56,9 +57,23 @@ class SIUnitDispenser(UnitDispenser):
 			+ Unit("kelvin", "K", 1.0).set_dimensions(temperature=1) \
 			+ Unit("mole", "mol", 1.0).set_dimensions(substance=1) \
 			+ Unit("candela", "cd", 1.0).set_dimensions(intensity=1) \
-			+ Unit("dollar", "$", 1.0, prefixable=False).set_dimensions(currency=1)
+			+ Unit("dollar", "$", 1.0, prefixable=False).set_dimensions(currency=1) \
+			+ Unit("radian", "rad", 1.0).set_dimensions(angle=1)
 		self.basis(mass='kg')
-
+		
+		# Non-linear units
+		self \
+			+ Unit("decibel", "dB", 1.0)
+		
+		self.add_conversion_map("dB", "", lambda v: 10**(v/10.))
+		self.add_conversion_map("", "dB", lambda v: 10*math.log(v,10))
+	
+		# Angular units
+		self \
+			+ Unit("degree", [u"°","deg"], 180./math.pi).set_dimensions(angle=1)
+		self.add_scaling({'time':-1,'angle':1}, {'time':-1}, 1./2/math.pi)
+		self.add_scaling({'angle':1}, {}, 1)
+		
 		# Scales
 		self \
 			+ Unit("mile", "mi", 201168. / 125).set_dimensions(length=1) \
@@ -115,6 +130,21 @@ class SIUnitDispenser(UnitDispenser):
 			+ Unit("gallon", "gal", 4 * 473176473. / 125000000000).set_dimensions(length=3) \
 			+ Unit("quart", "qt", 473176473. / 125000000000).set_dimensions(length=3) \
 			+ Unit("weber", "Wb", 1.).set_dimensions(length=2, mass=1, time=-2, current=-1)
+		
+		# Temperature
+		self \
+			+ Unit("fahrenheit", u"°F", 9./5).set_dimensions(temperature=1) \
+			+ Unit("celsius", u"°C", 1.).set_dimensions(temperature=1)
+		
+		self.add_conversion_map('fahrenheit','celsius',lambda f: (f - 32)*5./9, absolute=True)
+		self.add_conversion_map('fahrenheit','kelvin',lambda f: (f + 459.67)*5./9, absolute=True)
+		self.add_conversion_map('fahrenheit','celsius',lambda f: f*5./9, absolute=False)
+		self.add_conversion_map('fahrenheit','kelvin',lambda f: f*5./9, absolute=False)
+		
+		self.add_conversion_map('celsius','fahrenheit',lambda c: c*9./5 + 32, absolute=True)
+		self.add_conversion_map('celsius','kelvin',lambda c: c +  273.15, absolute=True)
+		self.add_conversion_map('celsius','fahrenheit',lambda c: c*9./5, absolute=False)
+		self.add_conversion_map('celsius','kelvin',lambda c: c, absolute=False)
 
 class SIQuantity(Quantity):
 	'''
@@ -123,8 +153,8 @@ class SIQuantity(Quantity):
 	documentation of :class:`Quantity` for more information.
 	'''
 
-	def _new(self, value, units, dispenser=None):
-		return SIQuantity(value, units, dispenser=self.dispenser if dispenser is None else dispenser)
+	def _new(self, value, units, dispenser=None, absolute=False):
+		return SIQuantity(value, units, dispenser=self.dispenser if dispenser is None else dispenser, absolute=absolute)
 
 	def _fallback_dispenser(self):
 		return SIUnitDispenser()

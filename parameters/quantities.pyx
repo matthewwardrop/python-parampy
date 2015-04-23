@@ -8,7 +8,7 @@ from .text import colour_text
 
 class Quantity(object):
 	'''
-	Quantity (value,units=None,dispenser=None)
+	Quantity (value,units=None,absolute=False,dispenser=None)
 
 	A Quantity object represents a physical quantity; that is, one with both
 	a value and dimensions. It is able to convert between different united
@@ -18,6 +18,9 @@ class Quantity(object):
 	:type value: Numeric
 	:param units: A representation of the units of the object. See documentation of 'Units' for more information.
 	:type units: str or Units
+	:param absolute: Whether this quantity represents an absolute quantity (a quantity with an absolute reference scale)
+		 or a relative one (such as a temperature delta).
+	:type absolute: bool
 	:param dispenser: The unit dispenser object from which unit objects are drawn. If not specified, a new UnitDispenser object is created.
 	:type dispenser: UnitDispenser
 
@@ -117,7 +120,7 @@ class Quantity(object):
 		True
 	'''
 
-	def __init__(self, value, units=None, dispenser=None):
+	def __init__(self, value, units=None, absolute=False, dispenser=None):
 		if value is None:
 			raise errors.QuantityValueError("A quantity's value must not be None.")
 		if isinstance(value, (list, tuple)):
@@ -126,6 +129,7 @@ class Quantity(object):
 		self.dispenser = dispenser
 		self.value = value
 		self.units = units
+		self.absolute = absolute
 
 	@property
 	def value(self):
@@ -157,6 +161,21 @@ class Quantity(object):
 			self.__units = self.dispenser(units)
 		else:
 			self.__units = units
+	
+	@property
+	def absolute(self):
+		'''
+		A boolean specifying whether this unit requires an absolute reference frame.
+		For example, many temperature scales do.
+
+		You can update this value using:
+
+		>>> quantity.value = <value>
+		'''
+		return self.__absolute
+	@absolute.setter
+	def absolute(self, absolute):
+		self.__absolute = absolute
 
 	@property
 	def dispenser(self):
@@ -187,40 +206,48 @@ class Quantity(object):
 		'''
 		return self(self.units.basis())
 
-	def _new(self, value, units, dispenser=None):
-		return Quantity(value, units, dispenser=self.dispenser if dispenser is None else dispenser)
+	def _new(self, value, units, dispenser=None, absolute=False):
+		return Quantity(value, units, dispenser=self.dispenser if dispenser is None else dispenser, absolute=absolute)
 
 	def _fallback_dispenser(self):
 		return UnitDispenser()
 
-	def __call__(self, units, dispenser=None):
+	def __call__(self, units, dispenser=None, context=None):
 		dispenser = dispenser if dispenser is not None else self.dispenser
 		if not isinstance(units, Units):
 			units = dispenser(units)
-		return self._new(self.value / units.scale(self.units), units, dispenser)
+		try:
+			return self._new(dispenser.conversion_map(self.units, units, context=context, absolute=self.absolute)(self.value), units, dispenser)
+		except:
+			return self._new(self.value * self.units.scale(units, context=context, value=self.value), units, dispenser)
 
 	def __repr__(self):
 		return str(self)
 
 	def __unicode__(self):
-		return u"%s %s" % (self.value,  unicode(self.units))
+		return u"%s %s" % (self.value,  unicode(self.units)) + (u" (abs)" if self.absolute else u"")
 
 	def __str__(self):
 		return unicode(self).encode('utf-8')
-
+	
+	# Arithmetic
 	def __add__(self, other, reverse=False):
 		if other == 0:
 			return self._new(self.value, self.units)
 		elif type(other) is tuple and len(other) == 2:
 			other = self._new(*other)
+		elif isinstance(other, Units):
+			raise ValueError("Invalid operation")
 		elif not isinstance(other, Quantity):
 			other = self._new(other, None)
+		
+		abs = self.absolute and not other.absolute or not self.absolute and other.absolute
 		if reverse:
 			scale = self.units.scale(other.units)
-			return self._new(scale * self.value + other.value, other.units)
+			return self._new(scale * self.value + other.value, other.units, absolute=abs)
 		else:
 			scale = other.units.scale(self.units)
-			return self._new(self.value + scale * other.value, self.units)
+			return self._new(self.value + scale * other.value, self.units, absolute=abs)
 
 	def __radd__(self, other):
 		return self.__add__(other, reverse=True)
@@ -230,14 +257,18 @@ class Quantity(object):
 			return self._new(self.value, self.units)
 		elif type(other) is tuple and len(other) == 2:
 			other = self._new(*other)
+		elif isinstance(other, Units):
+			raise ValueError("Invalid operation")
 		elif not isinstance(other, Quantity):
 			other = self._new(other, None)
+		
+		abs = self.absolute and not other.absolute or not self.absolute and other.absolute
 		if reverse:
 			scale = self.units.scale(other.units)
-			return self._new(-scale * self.value + other.value, other.units)
+			return self._new(-scale * self.value + other.value, other.units, absolute=abs)
 		else:
 			scale = other.units.scale(self.units)
-			return self._new(self.value - scale * other.value, self.units)
+			return self._new(self.value - scale * other.value, self.units, absolute=abs)
 
 	def __rsub__(self, other):
 		return self.__sub__(other, reverse=True)
@@ -248,23 +279,31 @@ class Quantity(object):
 	def __mul__(self, other):
 		if type(other) is tuple and len(other) == 2:
 			other = self._new(*other)
+		elif isinstance(other, Units):
+			other = 1.0 * other
 		try:
+			abs = self.absolute and (self.units.dimensions == {} or other.units.dimensions == {})
 			units = self.units * other.units
-			return self._new(self.value * other.value, units)
+			return self._new(self.value * other.value, units, absolute=abs)
 		except AttributeError:
-			return self._new(self.value * other, self.units)
+			return self._new(self.value * other, self.units, absolute=self.absolute)
 
 	def __rmul__(self, other):
 		return self.__mul__(other)
 
 	def __div__(self, other):
+		if self.absolute or other.absolute:
+			raise ValueError("Cannot divide absolute quantities.")
 		if type(other) is tuple and len(other) == 2:
 			other = self._new(*other)
+		elif isinstance(other, Units):
+			other = 1.0 * other
 		try:
+			abs = self.absolute and (self.units.dimensions == {} or other.units.dimensions == {})
 			units = self.units / other.units
 			return self._new(self.value / other.value, units)
 		except AttributeError:
-			return self._new(self.value / other, self.units)
+			return self._new(self.value / other, self.units, absolute=self.absolute)
 
 	def __truediv__(self, other):
 		return self.__div__(other)
@@ -273,12 +312,17 @@ class Quantity(object):
 		if type(other) is tuple and len(other) == 2:
 			other = self._new(*other)
 			return other / self
-		return self._new(other / self.value, 1 / self.units)
+		elif isinstance(other, Units):
+			other = 1.0 * other
+			return other / self
+		return self._new(other / self.value, 1 / self.units, absolute=self.absolute)
 
 	def __rtruediv__(self, other):
 		return self.__rdiv__(other)
 
 	def __pow__(self, other):
+		if isinstance(other, Quantity):
+			other = other("").value
 		return self._new(self.value ** other, self.units ** other)
 
 	# Duplicate functionality (as in __cmp__) to allow for comparison with non Quantity objects
@@ -287,7 +331,7 @@ class Quantity(object):
 			other = self._new(*other)
 		if isinstance(other, Quantity):
 			scale = self.units.scale(other.units)
-			if self.__truncate(self.value) == self.__truncate(other.value / scale):
+			if self.__truncate(self.value) == self.__truncate(other.value / scale) and self.absolute==other.absolute:
 				return True
 		return False
 
