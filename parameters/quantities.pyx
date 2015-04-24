@@ -161,7 +161,7 @@ class Quantity(object):
 			self.__units = self.dispenser(units)
 		else:
 			self.__units = units
-	
+
 	@property
 	def absolute(self):
 		'''
@@ -229,7 +229,7 @@ class Quantity(object):
 
 	def __str__(self):
 		return unicode(self).encode('utf-8')
-	
+
 	# Arithmetic
 	def __add__(self, other, reverse=False):
 		if other == 0:
@@ -240,7 +240,7 @@ class Quantity(object):
 			raise ValueError("Invalid operation")
 		elif not isinstance(other, Quantity):
 			other = self._new(other, None)
-		
+
 		abs = self.absolute and not other.absolute or not self.absolute and other.absolute
 		if reverse:
 			scale = self.units.scale(other.units)
@@ -261,7 +261,7 @@ class Quantity(object):
 			raise ValueError("Invalid operation")
 		elif not isinstance(other, Quantity):
 			other = self._new(other, None)
-		
+
 		abs = self.absolute and not other.absolute or not self.absolute and other.absolute
 		if reverse:
 			scale = self.units.scale(other.units)
@@ -292,18 +292,19 @@ class Quantity(object):
 		return self.__mul__(other)
 
 	def __div__(self, other):
-		if self.absolute or other.absolute:
-			raise ValueError("Cannot divide absolute quantities.")
 		if type(other) is tuple and len(other) == 2:
 			other = self._new(*other)
 		elif isinstance(other, Units):
 			other = 1.0 * other
-		try:
-			abs = self.absolute and (self.units.dimensions == {} or other.units.dimensions == {})
+
+		if isinstance(other, Quantity):
+			if self.absolute or other.absolute:
+				raise ValueError("Cannot divide absolute quantities.")
+			absolute = self.absolute and (self.units.dimensions == {} or other.units.dimensions == {})
 			units = self.units / other.units
-			return self._new(self.value / other.value, units)
-		except AttributeError:
-			return self._new(self.value / other, self.units, absolute=self.absolute)
+			return self._new(self.value / other.value, units, absolute=absolute)
+
+		return self._new(self.value / other, self.units, absolute=self.absolute)
 
 	def __truediv__(self, other):
 		return self.__div__(other)
