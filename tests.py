@@ -1,5 +1,6 @@
 import timeit
 import cProfile as profile
+import math
 import numpy as np
 
 import warnings
@@ -55,6 +56,14 @@ class TestQuantity(unittest.TestCase):
 		self.assertEqual( (SIQuantity(1,'m') / (1,'m')), SIQuantity(1,'') )
 		self.assertEqual( ((1,'m') * SIQuantity(1,'m')), SIQuantity(1,'m^2') )
 		self.assertEqual( ((1,'m') / SIQuantity(1,'m')), SIQuantity(1,'') )
+
+	def test_ufunc(self):
+		self.assertEqual( np.cos(1), np.cos(SIQuantity(1, 'rad')).value )
+		self.assertEqual( np.cos(1*180/math.pi), np.cos(SIQuantity(1, 'deg')).value )
+
+		self.assertEqual( np.radians(SIQuantity(3,'deg')), SIQuantity(np.radians(3),'rad') )
+
+		self.assertRaises( errors.UnitConversionError, np.tan, SIQuantity(1,'m') )
 
 class TestParameters(unittest.TestCase):
 
