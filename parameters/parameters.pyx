@@ -690,7 +690,7 @@ class Parameters(object):
 				dependencies[pam] = set(deps)
 
 		pam_order = pam_ordering(dependencies)
-		
+
 		# First evaluate functions to avoid errors later on
 		for pam in pam_order:
 			if pam in kwargs:
@@ -742,22 +742,22 @@ class Parameters(object):
 			if deps[-1] == param:
 				deps = deps[:-1]
 				deps_ = deps_[:-1]
-		
+
 		# Compute required arguments for functional argument
 		params = self.__get_params(deps_, kwargs)
 		args = [val for val in [params[self.__get_pam_name(x)] for x in deps_]]
-		
+
 		if param in kwargs: # Invert and return updated parameter values
 			r = f(*args)
 			if type(r) not in (list,tuple):
 				r = (r,)
-			
+
 			inverse = {}
-			
+
 			for i, arg in enumerate(deps[:-1]): # Iterate through results except for final dep which is param or _param
 				pam = self.__get_pam_name(arg)
 				inverse[pam] = self.__get_quantity(r[i], param=pam)
-			
+
 			return inverse
 		else: # Return value of function (from cache if possible)
 			if param in self.__cache_funcs:
@@ -770,7 +770,7 @@ class Parameters(object):
 					return {param: value}
 			else:
 				return {param: f(*args)}
-		
+
 
 	def __cache_func_handler(self, param, value=None, params=None):
 		'''
@@ -875,17 +875,14 @@ class Parameters(object):
 		return q
 
 	def __eval(self, arg, kwargs={}, default_scaled=None):
-		
+
 		if default_scaled is None:
-			default_scaled= self.__default_scaled
-		
+			default_scaled = self.__default_scaled
+
 		t = type(arg)
 
 		if t == tuple:
 			return self.__get_quantity((self.__eval(arg[0], kwargs), arg[1]), scaled=default_scaled)
-
-		elif isinstance(arg, Quantity):
-			return self.__get_quantity(arg, scaled=default_scaled)
 
 		elif t == types.FunctionType:
 			deps = self.__function_getargs(arg)
@@ -893,30 +890,23 @@ class Parameters(object):
 			args = [val for val in [params[self.__get_pam_name(x)] for x in deps]]  # Done separately to avoid memory leak when cythoned.
 			return arg(*args)
 
+		elif isinstance(arg, Quantity):
+			return self.__get_quantity(arg, scaled=default_scaled)
+
 		elif isinstance(arg, str) or arg.__class__.__module__.startswith('sympy'):
 			try:
 				if isinstance(arg, str):
-					if arg in self.__parameters:
-						return self.__get_param(arg, kwargs)
-
+					# We have a string which cannot be a single parameter. Check to see if it is trying to be.
 					arg = sympy.S(arg, sympy.abc._clash)
 					fs = list(arg.free_symbols)
 					if len(fs) == 1 and str(arg) == str(fs[0]):
 						raise errors.ParameterInvalidError("There is no parameter, and no interpretation, of '%s' which is recognised by Parameters." % arg)
-				params = {}
-				for sym in arg.free_symbols:
-					param = self.__get_param(str(sym), kwargs)
-					if isinstance(param, Quantity):
-						raise errors.SymbolicEvaluationError("Symbolic expressions can only be evaluated when using scaled parameters. Attempted to use '%s' in '%s', which would yield a united quantity." % (sym, arg))
-					params[str(sym)] = self.__get_param(str(sym), kwargs)
-				result = arg.subs(params).evalf()
-				if result.as_real_imag()[1] != 0:
-					return complex(result)
-				return float(result)
+				return self.__eval(self.optimise(arg), kwargs=kwargs, default_scaled=default_scaled)
 			except errors.ParameterInvalidError as e:
 				raise e
 			except Exception as e:
 				raise errors.SymbolicEvaluationError("Error evaluating symbolic statement '%s'. The message from SymPy was: `%s`." % (arg, e))
+
 		elif isinstance(arg, (complex, int, float, long)):
 			return arg
 
@@ -1017,9 +1007,10 @@ class Parameters(object):
 		try:
 			expr = sympy.S(expr, locals=sympy.abc._clash)
 			syms = list(expr.free_symbols)
-			f = sympy.utilities.lambdify(syms, expr, dummify=False)
+			f = sympy.utilities.lambdify(syms, expr, dummify=False, modules=['numpy','mpmath','math','sympy'])
 			return f
-		except:
+		except Exception, e:
+			print e
 			raise errors.SymbolicEvaluationError('String \'%s\' is not a valid symbolic expression.' % (expr))
 
 	def __get_function(self, expr):
@@ -1028,9 +1019,9 @@ class Parameters(object):
 		return self.__sympy_to_function(expr)
 
 	def __check_function(self, param, f, forbidden=None):
-		
+
 		_param = '_' + param
-		
+
 		inspection = inspect.getargspec(f)
 		if inspection.varargs is not None or inspection.keywords is not None:
 			raise ValueError("Cannot add parameter function that uses varargs or keyword arguments for '%s'." % param)
@@ -1040,9 +1031,9 @@ class Parameters(object):
 			raise ValueError("Cannot add parameter function that does not set a default value of None for self-referential parameter in definition for '%s'." % param)
 		if param not in inspection.args and _param not in inspection.args and inspection.defaults != None:
 			raise ValueError("Cannot add parameter function that provides default values for parameters in '%s'." % param)
-		
+
 		args = list(self.__function_getargs(f))
-		
+
 		if param in args:
 			args.remove(param)
 
@@ -1059,7 +1050,7 @@ class Parameters(object):
 				self.__check_function(arg, self.__parameters.get(arg), forbidden=forbidden[:])
 
 		return f
-	
+
 	def __function_getargs(self, f):  # faster than inspect.getargspec(f).args
 		return f.__code__.co_varnames[:f.__code__.co_argcount]
 
@@ -1679,7 +1670,7 @@ class Parameters(object):
 		:param type: object
 		:param wrt: Parameters for which all dependees should be preserved as variables.
 		:type wrt: tuple
-		:param params: Parameter overrides to use for the check as to whether a parameter 
+		:param params: Parameter overrides to use for the check as to whether a parameter
 			is dependent on one of the parameters in `wrt`.
 		:type params: dict
 

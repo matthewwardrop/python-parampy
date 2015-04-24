@@ -63,6 +63,8 @@ class TestQuantity(unittest.TestCase):
 
 		self.assertEqual( np.radians(SIQuantity(3,'deg')), SIQuantity(np.radians(3),'rad') )
 
+		self.assertEqual( np.sqrt(SIQuantity(4, 'm^2')), SIQuantity(2, 'm') )
+
 		self.assertRaises( errors.UnitConversionError, np.tan, SIQuantity(1,'m') )
 
 class TestParameters(unittest.TestCase):
@@ -179,6 +181,9 @@ class TestParameters(unittest.TestCase):
 
 	def test_symbolic(self):
 		self.assertEqual(self.p('_x^2 + _y^2', x=1, y=2),5.0)
+		self.assertEqual(self.p('x^2 + y^2', x=(1,'m'), y=(1,'m')),SIQuantity(2,'m^2'))
+		self.assertEqual(self.p('x^2 + sqrt(y)^4', x=(1,'m'), y=(1,'m')),SIQuantity(2,'m^2'))
+		self.assertEqual(self.p('x + acos(y)', x=(1,'rad'), y=(0.2,'')),SIQuantity(2.369438406,'rad'))
 
 	def test_constants(self):
 		self.assertEqual(self.p._c_h,6.62606957e-34)
