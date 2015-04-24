@@ -1,5 +1,6 @@
 import math
 import errors
+import warnings
 from functools import total_ordering
 import numpy as np
 
@@ -358,3 +359,102 @@ class Quantity(object):
 
 	def __rshift__(self, str_units):
 		return self(str_units).value
+
+	# numpy compatibility
+
+	__numpy_units_in = {
+			# Trigonometry
+			'sin': 'rad', 'cos': 'rad', 'tan': 'rad',
+			'sinh': 'rad', 'cosh': 'rad', 'tanh': 'rad',
+			'arcsin': '', 'arccos': '', 'arctan': '',
+			'arcsinh': '', 'arccosh': '', 'arctanh': '',
+			# Common functions
+			'exp': '', 'expm1': '', 'expm2': '',
+			'log': '', 'log10': '', 'log1p': '', 'log2': '',
+			# Others
+			'radians': 'deg', 'degrees': 'rad',
+			'deg2rad': 'deg', 'rad2deg': 'rad',
+			'logaddexp': '', 'logaddexp2': ''
+		}
+
+	__numpy_units_out = {
+			# Trigonometry
+			'sin': '', 'cos': '', 'tan': '',
+			'sinh': '', 'cosh': '', 'tanh': '',
+			'arcsin': 'rad', 'arccos': 'rad', 'arctan': 'rad',
+			'arcsinh': 'rad', 'arccosh': 'rad', 'arctanh': 'rad',
+			'arctan2': 'rad',
+			# Others
+			'radians': 'rad', 'degrees': 'deg',
+			'deg2rad': 'rad', 'rad2deg': 'deg'
+		}
+
+	__numpy_units_power = {
+			'sqrt': 0.5, 'square': 2, 'reciprocal': -1
+		}
+
+	__numpy_units_whatever = [
+			'remainder'
+	]
+
+	__numpy_ufuncs = tuple(__numpy_units_in.keys()) + tuple(__numpy_units_out.keys()) +\
+						tuple(__numpy_units_power.keys()) + tuple(__numpy_units_whatever)
+
+	__array_priority__ = 1000
+
+	def __getattr__(self, attr):
+		if attr.startswith('__array_'):
+			return getattr(np.asarray(self.value), attr)
+		return object.__getattribute__(self, attr)
+
+	def __array_prepare__(self, array, context=None):
+		ufunc, objs, domain = context
+
+		if ufunc.__name__ in self.__numpy_ufuncs and domain == 0:
+			# Cannot deal with more than one ufunc at a time
+			try:
+				if self.__handling:
+					raise Exception('Cannot handle nested ufuncs.')
+			except:
+				pass
+
+			self.__handling = context
+
+		return array
+
+	def __array_wrap__(self, array, context=None):
+
+		try:
+			ufunc, objs, domain = context
+
+			if ufunc.__name__ not in self.__numpy_ufuncs:
+				warnings.warn("ufunc '%s' not explicitly understood. Attempting to apply anyway." % ufunc.__name__)
+				#return np.asarray(self.value).__array_wrap__(array, context)
+
+			if ufunc.__name__ in self.__numpy_units_in:
+				objs = map(lambda x: x(self.__numpy_units_in[ufunc.__name__] if isinstance(x, Quantity) else x), objs)
+
+			rv = ufunc(*[v.value if isinstance(v,Quantity) else v for v in objs])
+
+			out_units = self.__dispenser(self.__numpy_units_out.get(ufunc.__name__, objs[0].units))
+			out_units **= self.__numpy_units_power.get(ufunc.__name__, 1)
+
+			r =  self._new(rv, self.__numpy_units_out.get(ufunc.__name__, out_units))
+
+			return r
+		except Exception as e:
+			raise e
+		finally:
+			self.__handling = None
+
+	def __long__(self):
+		return long(self("").value)
+
+	def __int__(self):
+		return int(self("").value)
+
+	def __float__(self):
+		return float(self("").value)
+
+	def __complex__(self):
+		return complex(self("").value)
