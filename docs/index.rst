@@ -5,7 +5,7 @@
 
 .. include:: defines.rst
 
-Welcome to Python Parameters's documentation!
+Welcome to ParamPy's documentation!
 =============================================
 
 .. toctree::
@@ -20,5 +20,3 @@ Welcome to Python Parameters's documentation!
 .. include:: apidoc.rst
 
 .. include:: supportedunits.rst
-
-

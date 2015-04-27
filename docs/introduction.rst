@@ -3,10 +3,10 @@ Introduction
 
 Keeping track of parameters during simulations can often be cumbersome,
 especially if those parameters are time- or co- dependent, or if unit
-conversions are necessary. The python-parameters module solves this
+conversions are necessary. The ParamPy (`parampy`) module solves this
 problem by acting as a central repository of all parameters, their
 non-dimensionalisation, their interdependencies, their units and their
-bounds. While providing all of this functionality, python-parameters
+bounds. While providing all of this functionality, ParamPy
 also attempts to maintain minimal overhead so that it is suitable for
 use in problems requiring iteration (such as numerical integration).
 
@@ -33,7 +33,7 @@ Properly enumerated, the python-parameters module can:
 -  Provide this functionality with minimal overhead to allow for speedy
    simulations.
 
-As of version 1.3.0 (the version at time of publication); simple
+As of version 1.9.0 (the version at time of publication); simple
 parameter storage and retrieval is only a factor of :math:`\approx`\ 10
 slower than a python variable set and read; though speeds decrease
 depending upon how many of the more sophisticated features are used

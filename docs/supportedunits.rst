@@ -10,29 +10,29 @@ Prefixes
 Except where otherwise noted by an \* in the unit lists shown below, all units
 can be prefixed with the following prefixes:
 
-.. tabularcolumns:: |r||c|c|c|c|c|c|c|c| 
+.. tabularcolumns:: |r||c|c|c|c|c|c|c|c|
 
-======================= ======= ======= ======= ======= ======= ======= ======= ======= 
+======================= ======= ======= ======= ======= ======= ======= ======= =======
 Larger Prefixes         kilo    mega    giga    tera    peta    exa     zepto   yotta
-======================= ======= ======= ======= ======= ======= ======= ======= ======= 
+======================= ======= ======= ======= ======= ======= ======= ======= =======
 Abbreviation            k       M       G       T       P       E       Z       Y
 Scaling (:math:`10^x`)  3       6       9       12      15      18      21      24
-======================= ======= ======= ======= ======= ======= ======= ======= ======= 
+======================= ======= ======= ======= ======= ======= ======= ======= =======
 
-.. tabularcolumns:: |r||c|c|c|c|c|c|c|c| 
+.. tabularcolumns:: |r||c|c|c|c|c|c|c|c|
 
-======================= ======= ======= ======= ======= ======= ======= ======= ======= 
+======================= ======= ======= ======= ======= ======= ======= ======= =======
 Smaller Prefixes        milli   micro   nano    pico    femto   atto    zepto   yocto
-======================= ======= ======= ======= ======= ======= ======= ======= ======= 
+======================= ======= ======= ======= ======= ======= ======= ======= =======
 Abbreviation            m       {mu},μ  n       p       f       a       z       y
 Scaling (:math:`10^x`)  -3      -6      -9      -12     -15     -18     -21     -24
-======================= ======= ======= ======= ======= ======= ======= ======= ======= 
+======================= ======= ======= ======= ======= ======= ======= ======= =======
 
 
 Units
 ~~~~~~~~
 
-The following units are split into groups according to the domains in which they are 
+The following units are split into groups according to the domains in which they are
 relevant. Units marked with an asterisk are not prefixable.
 
 Fundamental Units
@@ -155,6 +155,3 @@ tesla             T               :math:`MI^{-1}T^{-2}`
 gauss             G               :math:`MI^{-1}T^{-2}`
 weber             Wb              :math:`L^{2}MT^{-2}I^{-1}`
 ================= =============== ==============================
-
-
-
