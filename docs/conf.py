@@ -204,7 +204,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-  ('index', 'PythonParameters.tex', u'Python Parameters Documentation',
+  ('index', 'PythonParameters.tex', u'ParamPy Documentation',
    u'Matthew Wardrop', 'manual'),
 ]
 
