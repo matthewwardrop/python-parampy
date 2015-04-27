@@ -33,5 +33,4 @@ In most cases, installing this module is as easy as:
 
 If you run Arch Linux, you can instead run:
 
-	$ makepkg
-	$ pacman -U python2-parameters-<version>-1-<arch>.pkg.tar.xz
+	$ makepkg -i
