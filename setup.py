@@ -15,34 +15,34 @@ ext_modules = [ ]
 
 if use_cython:
     ext_modules += [
-        Extension("parameters.parameters", [ "parameters/parameters.pyx" ]),
-        Extension("parameters.definitions", [ "parameters/definitions.pyx" ]),
-        Extension("parameters.errors", [ "parameters/errors.pyx" ]),
-        Extension("parameters.physical_constants", [ "parameters/physical_constants.pyx" ]),
-        Extension("parameters.quantities", [ "parameters/quantities.pyx" ]),
-        Extension("parameters.text", [ "parameters/text.pyx" ]),
-        Extension("parameters.units", [ "parameters/units.pyx" ]),
+        Extension("parampy.parameters", [ "parampy/parameters.pyx" ]),
+        Extension("parampy.definitions", [ "parampy/definitions.pyx" ]),
+        Extension("parampy.errors", [ "parampy/errors.pyx" ]),
+        Extension("parampy.physical_constants", [ "parampy/physical_constants.pyx" ]),
+        Extension("parampy.quantities", [ "parampy/quantities.pyx" ]),
+        Extension("parampy.text", [ "parampy/text.pyx" ]),
+        Extension("parampy.units", [ "parampy/units.pyx" ]),
     ]
     cmdclass.update({ 'build_ext': build_ext })
 else:
     ext_modules += [
-        Extension("parameters.parameters", [ "parameters/parameters.c" ]),
-        Extension("parameters.definitions", [ "parameters/definitions.c" ]),
-        Extension("parameters.errors", [ "parameters/errors.c" ]),
-        Extension("parameters.physical_constants", [ "parameters/physical_constants.c" ]),
-        Extension("parameters.quantities", [ "parameters/quantities.c" ]),
-        Extension("parameters.text", [ "parameters/text.c" ]),
-        Extension("parameters.units", [ "parameters/units.c" ]),
+        Extension("parampy.parameters", [ "parampy/parameters.c" ]),
+        Extension("parampy.definitions", [ "parampy/definitions.c" ]),
+        Extension("parampy.errors", [ "parampy/errors.c" ]),
+        Extension("parampy.physical_constants", [ "parampy/physical_constants.c" ]),
+        Extension("parampy.quantities", [ "parampy/quantities.c" ]),
+        Extension("parampy.text", [ "parampy/text.c" ]),
+        Extension("parampy.units", [ "parampy/units.c" ]),
     ]
 
-setup(name='python-parameters',
-      version='1.3.0 RC',
+setup(name='parampy',
+      version='1.9.0',
       description='A parameter manager that keeps track of physical (or numerical) quantities, and the relationships between them.',
       author='Matthew Wardrop',
       author_email='mister.wardrop@gmail.com',
       url='http://www.matthewwardrop.info/',
-      download_url='https://github.com/themadhatter/python-parameters',
-      packages=['parameters','parameters.utility'],
+      download_url='https://github.com/themadhatter/python-parampy',
+      packages=['parampy','parampy.utility'],
       cmdclass = cmdclass,
       ext_modules = ext_modules,
       requires=['numpy','sympy(>0.7.5)','scipy'],

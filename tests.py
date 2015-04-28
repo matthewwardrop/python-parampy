@@ -6,7 +6,7 @@ import numpy as np
 import warnings
 warnings.filterwarnings("ignore")
 
-from parameters import Parameters,SIUnitDispenser,Quantity,SIQuantity,Unit, UnitDispenser, Units, errors
+from parampy import Parameters,SIUnitDispenser,Quantity,SIQuantity,Unit, UnitDispenser, Units, errors
 
 ###################### UNIT TESTS ##############################################
 import unittest
