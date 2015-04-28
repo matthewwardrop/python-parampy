@@ -213,7 +213,7 @@ class Quantity(object):
 	def _fallback_dispenser(self):
 		return UnitDispenser()
 
-	def __call__(self, units, dispenser=None, context=None):
+	def __call__(self, units, dispenser=None, context=False):
 		dispenser = dispenser if dispenser is not None else self.dispenser
 		if not isinstance(units, Units):
 			units = dispenser(units)

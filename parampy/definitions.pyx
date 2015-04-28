@@ -145,6 +145,12 @@ class SIUnitDispenser(UnitDispenser):
 		self.add_conversion_map('celsius','kelvin',lambda c: c +  273.15, absolute=True)
 		self.add_conversion_map('celsius','fahrenheit',lambda c: c*9./5, absolute=False)
 		self.add_conversion_map('celsius','kelvin',lambda c: c, absolute=False)
+		
+		self.add_context("cm", hbar=1.05457173e-34)
+		
+		def E_to_Hz(hbar):
+			return 1./2/math.pi/hbar
+		self.add_scaling({'mass':1,'length':2,'time':-2}, {'time':-1}, E_to_Hz, context="cm")
 
 class SIQuantity(Quantity):
 	'''

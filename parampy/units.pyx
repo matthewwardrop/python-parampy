@@ -1,5 +1,5 @@
 from fractions import Fraction
-import re, types
+import re, types, inspect
 
 from . import errors
 from .text import colour_text
@@ -204,6 +204,8 @@ class UnitDispenser(object):
 		self._units = {}
 		self._prefixes = []
 		
+		self._contexts = {}
+		self._context_current = False
 		self._scalings = {}
 		self._conversions = {}
 		self.__convertable_units = []
@@ -294,6 +296,38 @@ class UnitDispenser(object):
 
 		return self
 	
+	def add_context(self, *name, **params):
+		if params == {} and len(name) == 2:
+			params = name[1]
+			name = name[0]
+		else:
+			assert(len(name) == 1)
+			name = name[0]
+		self._contexts[name] = params
+	
+	def set_context(self, *name, **params):
+		assert(len(name) == 1)
+		name = name[0]
+		
+		if name not in self._contexts:
+			raise ValueError("Non-existent context %s" % name)
+		
+		ps = self._contexts[name].copy()
+		
+		for p in ps.keys():
+			if p in params:
+				ps[p] = params[p]
+		
+		self._context_current = (name, ps)
+		self.__cache = {}
+	
+	@property
+	def context(self):
+		if self._context_current is False:
+			return None
+		else:
+			return self._context_current
+	
 	def add_scaling(self, dim_from, dim_to, scaling, context=None):
 		'''
 		add_scaling(dim_from, dim_to, scaling, context=None)
@@ -322,13 +356,15 @@ class UnitDispenser(object):
 		'''
 		assert(type(dim_from) == dict)
 		assert(type(dim_to) == dict)
+		if context not in self._contexts:
+			self._contexts[context] = {}
 		if context not in self._scalings:
 			self._scalings[context] = []
 		self._scalings[context].append( (dim_from, dim_to, scaling) )
 			
-	def is_scalable(self, dim_from, dim_to, context=None):
+	def is_scalable(self, dim_from, dim_to, context=False):
 		'''
-		is_scalable(dim_from, dim_to, context=None)
+		is_scalable(dim_from, dim_to, context=False)
 		
 		:param dim_from: A dictionary of dimensions from which scaling to `dim_to` will be tested.
 		:type dim_from: dict
@@ -346,31 +382,57 @@ class UnitDispenser(object):
 		except:
 			return False
 	
-	def scale(self, dim_from, dim_to, context=None):
+	def scale(self, dim_from, dim_to, context=False):
 		'''
-		scale(dim_from, dim_to, context=None)
+		scale(dim_from, dim_to, context=False)
 		
 		:param dim_from: A dictionary of dimensions from which to scale.
 		:type dim_from: dict
 		:param dim_to: A dictionary of dimensions to which to scale.
 		:type dim_to: dict
-		:param context: The context in which to provide this scaling.
+		:param context: The context in which to provide this scaling, or False.
 		:type context: str
 		
 		This method returns a float corresponding to a scaling from the 
 		dimensions provided, as specified using `UnitDispenser.add_scaling`.
 		'''
+		
+		if context is False:
+			if self._context_current is not False:
+				context = self._context_current[0]
+			else:
+				context = None
+		
 		if context in self._scalings:
 			for scaling in self._scalings[context]:
 				if dim_from == scaling[0] and dim_to == scaling[1]:
-					return scaling[2]
+					return self.__eval_context_function(scaling[2], context)
 				elif dim_from == scaling[1] and dim_to == scaling[0]:
-					return 1./scaling[2]
+					return 1./self.__eval_context_function(scaling[2], context)
 		
 		if context is not None:
-			return self.scale(dim_from, dim_to)
+			return self.scale(dim_from, dim_to, context=None)
 		
 		raise ValueError("No scaling between dimensions %s and %s are possible." % (dim_from, dim_to))
+	
+	def __eval_context_function(self, f, context, args=(), kwargs={}):
+		if f.__code__ is None:
+			raise ValueError("Error during evaluation of function, due to its being non-introspectable. Most likely, this function is a cython function.")
+		
+		args = list(args)
+		arg_names = f.__code__.co_varnames[len(args):f.__code__.co_argcount]
+		
+		for arg in arg_names:
+			if arg in kwargs:
+				args.append(kwargs[arg])
+			elif self._context_current is not False and context == self._context_current[0] and arg in self._context_current[1]:
+				args.append(self._context_current[1][arg])
+			elif context in self._contexts and arg in self._contexts[context]:
+				args.append(self._contexts[context][arg])
+			else:
+				raise ValueError("Value for `%s` not available in context." % arg)
+		
+		return f(*args)
 	
 	def add_conversion_map(self, unit_from, unit_to, mapping, absolute=False, context=None):
 		'''
@@ -405,12 +467,14 @@ class UnitDispenser(object):
 		
 		'''
 		# TODO: Add checks
+		if context not in self._contexts:
+			self._contexts[context] = {}
 		if context not in self._conversions:
 			self._conversions[context] = []
 		self._conversions[context].append( ( self(unit_from), self(unit_to), mapping, absolute) )
 		self.__convertable_units.append(self(unit_from))
 	
-	def has_conversion_map(self, unit_from, unit_to, absolute=False, context=None):
+	def has_conversion_map(self, unit_from, unit_to, absolute=False, context=False):
 		'''
 		has_conversion_map(unit_from, unit_to, absolute=True, context=None)
 		
@@ -434,7 +498,7 @@ class UnitDispenser(object):
 		except:
 			return False
 	
-	def conversion_map(self, unit_from, unit_to, absolute=False, context=None):
+	def conversion_map(self, unit_from, unit_to, absolute=False, context=False):
 		'''
 		conversion_map(unit_from, unit_to, absolute=True, context=None)
 		
@@ -457,6 +521,12 @@ class UnitDispenser(object):
 		unit_from, unit_to = self(unit_from), self(unit_to)
 		if unit_from not in self.__convertable_units:
 			raise ValueError("No mapping known between %s and %s" % (unit_from, unit_to))
+		
+		if context is False:
+			if self._context_current is not False:
+				context = self._context_current[0]
+			else:
+				context = None
 		
 		check = False
 		try:
@@ -483,7 +553,7 @@ class UnitDispenser(object):
 					pre_scaling = unit_from.scale(conversion[0])
 					post_scaling = unit_to.scale(conversion[1])
 					
-					c = lambda v: conversion[2](pre_scaling*v)/post_scaling
+					c = lambda v: self.__eval_context_function(conversion[2], context, args=[pre_scaling*v])/post_scaling
 					
 					break
 					
@@ -502,7 +572,7 @@ class UnitDispenser(object):
 				return c
 		
 		if context is not None:
-			return self.conversion_map(unit_from, unit_to)
+			return self.conversion_map(unit_from, unit_to, context=None)
 		
 		raise ValueError("No mapping known between %s and %s" % (unit_from, unit_to))
 
@@ -804,7 +874,7 @@ class Units(object):
 	def __str__(self):
 		return unicode(self).encode('utf-8')
 
-	def scale(self, other, context=None, value=None):
+	def scale(self, other, context=False, value=None):
 		'''
 		scale(other)
 
@@ -833,7 +903,7 @@ class Units(object):
 			scale = None
 			try:
 				scale = self.__dispenser.scale(dims, dims_other, context=context)
-			except ValueError:
+			except ValueError as e:
 				pass
 
 			# If the union of the sets of dimensions is less than the maximum size of the dimensions; then clearly the units are the same.
@@ -842,7 +912,7 @@ class Units(object):
 					raise errors.UnitConversionError("Invalid conversion. Units '%s' and '%s' do not match. %s" % (self, other, set(dims.items()) & set(dims_other.items())))
 				self.__scale_cache[other] = self.rel / other.rel
 			else:
-				self.__scale_cache[other] = self.rel / other.rel * scale
+				return self.rel / other.rel * scale # Don't cache if scaling was applied.
 			return self.__scale_cache[other]
 
 	@property
