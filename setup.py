@@ -16,7 +16,6 @@ ext_modules = [ ]
 if use_cython:
     ext_modules += [
         Extension("parampy.parameters", [ "parampy/parameters.pyx" ]),
-        Extension("parampy.definitions", [ "parampy/definitions.pyx" ]),
         Extension("parampy.errors", [ "parampy/errors.pyx" ]),
         Extension("parampy.physical_constants", [ "parampy/physical_constants.pyx" ]),
         Extension("parampy.quantities", [ "parampy/quantities.pyx" ]),
@@ -27,7 +26,6 @@ if use_cython:
 else:
     ext_modules += [
         Extension("parampy.parameters", [ "parampy/parameters.c" ]),
-        Extension("parampy.definitions", [ "parampy/definitions.c" ]),
         Extension("parampy.errors", [ "parampy/errors.c" ]),
         Extension("parampy.physical_constants", [ "parampy/physical_constants.c" ]),
         Extension("parampy.quantities", [ "parampy/quantities.c" ]),
