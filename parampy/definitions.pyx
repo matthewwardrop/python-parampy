@@ -148,9 +148,7 @@ class SIUnitDispenser(UnitDispenser):
 		
 		self.add_context("cm", hbar=1.05457173e-34)
 		
-		def E_to_Hz(hbar):
-			return 1./2/math.pi/hbar
-		self.add_scaling({'mass':1,'length':2,'time':-2}, {'time':-1}, E_to_Hz, context="cm")
+		self.add_scaling({'mass':1,'length':2,'time':-2}, {'time':-1}, lambda hbar: 1./2/math.pi/hbar, context="cm")
 
 class SIQuantity(Quantity):
 	'''
