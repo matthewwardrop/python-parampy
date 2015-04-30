@@ -133,8 +133,8 @@ class SIUnitDispenser(UnitDispenser):
 		
 		# Temperature
 		self \
-			+ Unit("fahrenheit", u"°F", 9./5).set_dimensions(temperature=1) \
-			+ Unit("celsius", u"°C", 1.).set_dimensions(temperature=1)
+			+ Unit("fahrenheit", [u"°F","degF"], 9./5).set_dimensions(temperature=1) \
+			+ Unit("celsius", [u"°C","degC"], 1.).set_dimensions(temperature=1)
 		
 		self.add_conversion_map('fahrenheit','celsius',lambda f: (f - 32)*5./9, absolute=True)
 		self.add_conversion_map('fahrenheit','kelvin',lambda f: (f + 459.67)*5./9, absolute=True)

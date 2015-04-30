@@ -218,9 +218,9 @@ class Quantity(object):
 		if not isinstance(units, Units):
 			units = dispenser(units)
 		try:
-			return self._new(dispenser.conversion_map(self.units, units, context=context, absolute=self.absolute)(self.value), units, dispenser)
+			return self._new(dispenser.conversion_map(self.units, units, context=context, absolute=self.absolute)(self.value), units, dispenser, absolute=self.absolute)
 		except:
-			return self._new(self.value * self.units.scale(units, context=context, value=self.value), units, dispenser)
+			return self._new(self.value * self.units.scale(units, context=context, value=self.value), units, dispenser, absolute=self.absolute)
 
 	def __repr__(self):
 		return str(self)
