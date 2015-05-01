@@ -280,7 +280,7 @@ try:
 					self._print_progress()
 				if self.count < len(X):
 					self.lock.acquire()
-					self.lock.wait()
+					self.lock.wait(1.) # Just in case a result slipped through while incorporated below, we wait a max of 1 second before polling again.
 					self.lock.release()
 			
 			self.cluster.wait()
