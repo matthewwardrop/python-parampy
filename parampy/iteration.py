@@ -8,7 +8,7 @@ import numpy as np
 
 class RangesIterator(object):
 	'''
-	RangesIterator(parameters, ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None, progress=True)
+	RangesIterator(parameters, ranges, params={}, masks=None, function=None, function_args=(), function_kwargs={}, nprocs=None, distributed=False, ranges_eval=None, progress=True)
 
 	:class:`RangesIterator` is a python iterable object, which allows one to easily
 	iterate over a potentially multidimensional space of parameters. It also has
@@ -25,10 +25,15 @@ class RangesIterator(object):
 	:type masks: list of callable objects
 	:param function: An (optional) function to call for every resulting parameter configuration.
 	:type function: callable
+	:param function_args: An (optional) tuple/list of args to pass to the above function at every call.
+	:type function_args: tuple or list
 	:param function_kwargs: An (optional) dictionary of kwargs to pass to the above function at every call.
 	:type function_kwargs: dict
 	:param nprocs: The number of processes to spawn at any one time (for multithreading support).
 	:type nprocs: None or int
+	:param distributed: `False` or `None` if distributed computing using dispynode servers is NOT to be used,
+		and `True` or a dictionary of dispy.JobCluster parameters otherwise.
+	:type distributed: NoneType, bool or dict
 	:param ranges_eval: An (optional) previously computed ranges_eval to use in this enumeration.
 	:type ranges_eval: numpy.ndarray
 	:param progress: `True` if progress should be shown, and `False` otherwise. This can also
@@ -106,6 +111,11 @@ class RangesIterator(object):
 		value of the number of processors of the machine). If specified as a negative
 		number, then the iteration process will use that many fewer than the total number
 		of processors on your machine.
+	
+	Distributed Computing:
+		It is possible to have `RangesIterator` distribute tasks to any available dispynode
+		servers. To enable this (which takes precedence over the above multithreading), simply
+		set `distributed` to `True` or a dictionary of arguments to pass on to `dispy.JobCluster`. 
 
 	Masking:
 		If you do not want the parameters or evaluated function at all possible
@@ -125,14 +135,16 @@ class RangesIterator(object):
 		with the range specifications and current parameter context.
 	'''
 
-	def __init__(self, parameters, ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None, progress=True):
+	def __init__(self, parameters, ranges, params={}, masks=None, function=None, function_args=(), function_kwargs={}, nprocs=None, distributed=False, ranges_eval=None, progress=True):
 		self.p = parameters
 		self.ranges = ranges
 		self.function = function
+		self.function_args = function_args
 		self.function_kwargs = function_kwargs
 		self.params = params
 		self.masks = masks
 		self.nprocs = nprocs
+		self.distributed = distributed
 		self.ranges_eval = ranges_eval
 		self.progress = progress
 
@@ -388,15 +400,27 @@ class RangesIterator(object):
 		params.update(self.__index_to_dict(index, ranges_eval))
 		return params
 
-	def __iter__(self,):
+	def __iter__(self):
 		ranges_eval, indices = self.ranges_expand()
 
 		start_time = datetime.datetime.now()
-		if self.nprocs not in [0, 1] and self.function is not None:
+		if self.distributed not in (None, False) and  self.function is not None:
+			try:
+				from .utility.symmetric import DistributedParallelMap
+			except:
+				raise RuntimeError("The `dispy` module is required for distributed iteration.")
+			
+			cluster_kwargs = {} if self.distributed is True else self.distributed
+			dpm = DistributedParallelMap(self.function, progress=self.progress, **cluster_kwargs)
+			
+			for res in dpm.iterate([(i, self.function_args, {'params':self.__get_params_for_index(i, ranges_eval)}) for i in indices], count_offset=0, count_total=len(indices), start_time=start_time, base_kwargs=self.function_kwargs):
+				yield res
+			
+		elif self.nprocs not in [0, 1] and self.function is not None:
 			from .utility.symmetric import AsyncParallelMap
 			apm = AsyncParallelMap(self.function, progress=self.progress, nprocs=self.nprocs, spawnonce=True)
 
-			for res in apm.iterate([(i, tuple(), {'params':self.__get_params_for_index(i, ranges_eval)}) for i in indices], count_offset=0, count_total=len(indices), start_time=start_time, base_kwargs=self.function_kwargs):
+			for res in apm.iterate([(i, self.function_args, {'params':self.__get_params_for_index(i, ranges_eval)}) for i in indices], count_offset=0, count_total=len(indices), start_time=start_time, base_kwargs=self.function_kwargs):
 				yield res
 		else:
 			for i, index in enumerate(indices):

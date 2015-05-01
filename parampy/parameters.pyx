@@ -1507,9 +1507,9 @@ class Parameters(object):
 		return pam_range
 
 	################## Function iteration ##################################
-	def ranges_iterator(self, ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None, progress=True):
+	def ranges_iterator(self, ranges, params={}, masks=None, function=None, param_args=(), function_args=(), function_kwargs={}, nprocs=None, distributed=False, ranges_eval=None, progress=True):
 		'''
-		ranges_iterator(ranges, params={}, masks=None, function=None, function_kwargs={}, nprocs=None, ranges_eval=None, progress=True)
+		ranges_iterator(ranges, params={}, masks=None, function=None, function_args=(), function_kwargs={}, nprocs=None, ranges_eval=None, progress=True)
 
 		This method is shorthand for:
 
@@ -1523,8 +1523,8 @@ class Parameters(object):
 
 		For more information, please refer to the :class:`RangesIterator` documentation.
 		'''
-		return RangesIterator(parameters=self, ranges=ranges, params=params, masks=masks, function=function, \
-						function_kwargs=function_kwargs, nprocs=nprocs, ranges_eval=ranges_eval, progress=progress)
+		return RangesIterator(parameters=self, ranges=ranges, params=params, masks=masks, function=function, function_args=function_args, \
+						function_kwargs=function_kwargs, nprocs=nprocs, distributed=distributed, ranges_eval=ranges_eval, progress=progress)
 
 	################## CONVERT UTILITY #####################################
 	def asvalue(self, **kwargs):

@@ -68,56 +68,38 @@ def spawnonce(f):
 
 	return fun
 
-class AsyncParallelMap(object):
-
-	def __init__(self, f, progress=False, nprocs=None, spawnonce=True):
-		multiprocessing.log_to_stderr(logging.WARN)
-		if nprocs is None:
-			self.nprocs = multiprocessing.cpu_count()
-		else:
-			self.nprocs = multiprocessing.cpu_count() + nprocs if nprocs < 0 else nprocs
-		self.proc = []
+class ParallelMap(object):
+	
+	def __init__(self, f, progress=False, **kwargs):
+		self.f = f
 		self.progress = progress
-		self.spawnonce = spawnonce
-		self.f = f
-
-	def reset(self, f, count_offset=None,count_total=None):
-		self.f = f
-
+		self.init(**kwargs)
+	
+	def init(self):
+		pass
+	
+	def reset(self, f=None, count_offset=None, count_total=1, **kwargs):
+		if f is not None:
+			self.f = f
+		
 		self.count = 0
 		self.count_offset = count_offset
 		self.count_total = count_total
 
 		self.start_time = None
-
-		self.q_in = multiprocessing.Queue(1 if not spawnonce else self.nprocs)
-		self.q_out = multiprocessing.Queue()
-
-		while len(self.proc) > 0:
-			self.proc.pop().terminate()
-		if not self.spawnonce:
-			self.proc = [multiprocessing.Process(target=spawn(self.f), args=(self.q_in, self.q_out)) for _ in range(self.nprocs)]
-			for p in self.proc:
-				p.daemon = True
-				p.start()
-
-	def __sweep_results(self,timeout=0.01):
-		while True:
-			try:
-				yield self.q_out.get(timeout=timeout)
-				self.count += 1
-			except Queue.Empty:
-				break
-			except:
-				break
-
-	def __print_progress(self, count):
+		
+		self._reset(**kwargs)
+	
+	def _reset(self):
+		pass
+	
+	def _print_progress(self):
 		progress = self.progress
 		if self.progress is True:
 			progress = self.__print_progress_fallback
 
 		progress(
-			total = count + self.count_offset if self.count_total is None else self.count_total,
+			total = self.count_total,
 			completed = self.count + ( self.count_offset if self.count_offset is not None else 0 ),
 			start_time = self.start_time
 		)
@@ -147,15 +129,52 @@ class AsyncParallelMap(object):
 			sys.stderr.write('\n')
 
 		sys.stderr.flush()
-
+	
 	def map(self, X, count_offset=None, count_total=None, start_time=None):
 		return list(self.iterate(X,count_offset=count_offset,count_total=count_total,start_time=start_time))
+	
+	def iterate(self, X, count_offset=None,count_total=None,start_time=None, base_kwargs=None):
+		pass
+	
+class AsyncParallelMap(ParallelMap):
+
+	def init(self, nprocs=None, spawnonce=True):
+		multiprocessing.log_to_stderr(logging.WARN)
+		if nprocs is None:
+			self.nprocs = multiprocessing.cpu_count()
+		else:
+			self.nprocs = multiprocessing.cpu_count() + nprocs if nprocs < 0 else nprocs
+		self.proc = []
+		self.spawnonce = spawnonce
+
+	def _reset(self):
+		self.q_in = multiprocessing.Queue(1 if not spawnonce else self.nprocs)
+		self.q_out = multiprocessing.Queue()
+
+		while len(self.proc) > 0:
+			self.proc.pop().terminate()
+		if not self.spawnonce:
+			self.proc = [multiprocessing.Process(target=spawn(self.f), args=(self.q_in, self.q_out)) for _ in range(self.nprocs)]
+			for p in self.proc:
+				p.daemon = True
+				p.start()
+
+	def __sweep_results(self,timeout=0.01):
+		while True:
+			try:
+				yield self.q_out.get(timeout=timeout)
+				self.count += 1
+			except Queue.Empty:
+				break
+			except:
+				break
 
 	def iterate(self, X, count_offset=None,count_total=None,start_time=None, base_kwargs=None):
 		self.reset(self.f,count_offset=count_offset,count_total=count_total)
 
 		self.start_time = start_time if start_time is not None else datetime.datetime.now()
-		count = len(X)
+		self.count_total = count_total if count_total is not None else len(X)
+		
 		if not self.spawnonce:
 			X = X + [(None, None, None)] * self.nprocs  # add sentinels
 
@@ -186,7 +205,7 @@ class AsyncParallelMap(object):
 
 			gc.collect()
 			if self.progress is not False:
-				self.__print_progress(count)
+				self._print_progress()
 
 		self.q_in.close()
 
@@ -194,7 +213,74 @@ class AsyncParallelMap(object):
 			yield self.q_out.get()
 			self.count += 1
 			if self.progress is not False:
-				self.__print_progress(count)
+				self._print_progress()
 
 		if not self.spawnonce:
 			[p.terminate() if p.is_alive() else False for p in self.proc]
+
+try:
+	import dispy
+	import threading
+		
+	class DistributedParallelMap(ParallelMap):
+		
+		def init(self, **cluster_opts):
+			self.cluster_opts = cluster_opts
+			self.lock = threading.Condition()
+		
+		def _reset(self, cluster_opts=None):
+			self.cluster_opts = cluster_opts if cluster_opts is not None else self.cluster_opts
+			self.jobs = []
+			self.done = []
+			self.cluster = dispy.JobCluster(self.f, callback=self.__receive_callback, **self.cluster_opts)
+		
+		def __receive_callback(self, job):
+			if job.result is None:
+				print
+				print "--------"
+				print "Job failed to successfully complete on %s with result:" % job.ip_addr
+				print job.result
+				print job.exception
+				print job.stdout
+				print job.stderr
+				print "-------"
+				print 
+			self.done.append(job)
+			
+			self.lock.acquire()
+			self.lock.notifyAll()
+			self.lock.release()
+		
+		def iterate(self, X, count_offset=None,count_total=None,start_time=None, base_kwargs=None):
+			self.reset(count_offset=count_offset,count_total=count_total)
+			
+			self.start_time = start_time if start_time is not None else datetime.datetime.now()
+			self.count_total = count_total if count_total is not None else len(X)
+			
+			for (x_indices, x_args, x_kwargs) in X:
+				if base_kwargs is not None:
+					kwargs = base_kwargs.copy()
+					kwargs.update(x_kwargs)
+				else:
+					kwargs = x_kwargs
+				
+				job = self.cluster.submit(*x_args, **kwargs)
+				job.id = x_indices
+				self.jobs.append(job)
+			
+			while self.count < len(X):
+				while len(self.done) > 0:
+					job = self.done.pop()
+					yield (job.id, job.result)
+					self.count += 1
+					self._print_progress()
+				if self.count < len(X):
+					self.lock.acquire()
+					self.lock.wait()
+					self.lock.release()
+			
+			self.cluster.wait()
+			self.cluster.stats()
+			self.cluster.close()
+except:
+	pass
