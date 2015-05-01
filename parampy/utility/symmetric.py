@@ -97,6 +97,8 @@ class ParallelMap(object):
 		progress = self.progress
 		if self.progress is True:
 			progress = self.__print_progress_fallback
+		else:
+			return
 
 		progress(
 			total = self.count_total,
@@ -267,6 +269,8 @@ try:
 				job = self.cluster.submit(*x_args, **kwargs)
 				job.id = x_indices
 				self.jobs.append(job)
+			
+			self._print_progress()
 			
 			while self.count < len(X):
 				while len(self.done) > 0:
