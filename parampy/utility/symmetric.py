@@ -222,6 +222,7 @@ class AsyncParallelMap(ParallelMap):
 
 try:
 	import dispy
+	assert(float(dispy.__version__) >= 4.1)
 	import threading
 		
 	class DistributedParallelMap(ParallelMap):
@@ -235,6 +236,10 @@ try:
 			self.jobs = []
 			self.done = []
 			self.cluster = dispy.JobCluster(self.f, callback=self.__receive_callback, **self.cluster_opts)
+			if self.cluster_opts.pop('http_server',False):
+				self.http_server = dispy.httpd.DispyHTTPServer(self.cluster)
+			else:
+				self.http_server = None
 		
 		def __receive_callback(self, job):
 			if job.result is None:
@@ -283,8 +288,16 @@ try:
 					self.lock.wait(1.) # Just in case a result slipped through while incorporated below, we wait a max of 1 second before polling again.
 					self.lock.release()
 			
+			self._finalise()
+		
+		def _finalise(self):
 			self.cluster.wait()
 			self.cluster.stats()
+			
+			if self.http_server is not None:
+				self.http_server.shutdown()
+			
 			self.cluster.close()
+			
 except:
 	pass
