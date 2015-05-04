@@ -235,8 +235,9 @@ try:
 			self.cluster_opts = cluster_opts if cluster_opts is not None else self.cluster_opts
 			self.jobs = []
 			self.done = []
+			http_server = self.cluster_opts.pop('http_server',False)
 			self.cluster = dispy.JobCluster(self.f, callback=self.__receive_callback, **self.cluster_opts)
-			if self.cluster_opts.pop('http_server',False):
+			if http_server:
 				self.http_server = dispy.httpd.DispyHTTPServer(self.cluster)
 			else:
 				self.http_server = None
