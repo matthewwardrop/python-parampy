@@ -223,6 +223,7 @@ class AsyncParallelMap(ParallelMap):
 try:
 	import dispy
 	assert(float(dispy.__version__) >= 4.1)
+	import dispy.httpd
 	import threading
 		
 	class DistributedParallelMap(ParallelMap):
