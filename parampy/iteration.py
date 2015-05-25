@@ -1,4 +1,5 @@
 import sys
+import threading
 import resource
 import datetime
 import types
@@ -147,6 +148,10 @@ class RangesIterator(object):
 		self.distributed = distributed
 		self.ranges_eval = ranges_eval
 		self.progress = progress
+		
+		if threading.currentThread().name != "MainThread":
+			self.nprocs = 1
+			self.distributed = False
 
 	@property
 	def p(self):
