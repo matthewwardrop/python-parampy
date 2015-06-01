@@ -34,7 +34,7 @@ else:
     ]
 
 setup(name='parampy',
-      version='1.9.0',
+      version='1.9.1',
       description='A parameter manager that keeps track of physical (or numerical) quantities, and the relationships between them.',
       author='Matthew Wardrop',
       author_email='mister.wardrop@gmail.com',
