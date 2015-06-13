@@ -112,11 +112,11 @@ class RangesIterator(object):
 		value of the number of processors of the machine). If specified as a negative
 		number, then the iteration process will use that many fewer than the total number
 		of processors on your machine.
-	
+
 	Distributed Computing:
 		It is possible to have `RangesIterator` distribute tasks to any available dispynode
 		servers. To enable this (which takes precedence over the above multithreading), simply
-		set `distributed` to `True` or a dictionary of arguments to pass on to `dispy.JobCluster`. 
+		set `distributed` to `True` or a dictionary of arguments to pass on to `dispy.JobCluster`.
 
 	Masking:
 		If you do not want the parameters or evaluated function at all possible
@@ -148,7 +148,7 @@ class RangesIterator(object):
 		self.distributed = distributed
 		self.ranges_eval = ranges_eval
 		self.progress = progress
-		
+
 		if threading.currentThread().name != "MainThread":
 			self.nprocs = 1
 			self.distributed = False
@@ -414,13 +414,13 @@ class RangesIterator(object):
 				from .utility.symmetric import DistributedParallelMap
 			except:
 				raise RuntimeError("The `dispy` module is required for distributed iteration.")
-			
+
 			cluster_kwargs = {} if self.distributed is True else self.distributed
 			dpm = DistributedParallelMap(self.function, progress=self.progress, **cluster_kwargs)
-			
+
 			for res in dpm.iterate([(i, self.function_args, {'params':self.__get_params_for_index(i, ranges_eval)}) for i in indices], count_offset=0, count_total=len(indices), start_time=start_time, base_kwargs=self.function_kwargs):
 				yield res
-			
+
 		elif self.nprocs not in [0, 1] and self.function is not None:
 			from .utility.symmetric import AsyncParallelMap
 			apm = AsyncParallelMap(self.function, progress=self.progress, nprocs=self.nprocs, spawnonce=True)
@@ -432,7 +432,7 @@ class RangesIterator(object):
 				if self.function is None:
 					yield (index, self.__index_to_dict(index, ranges_eval))
 				else:
-					yield (index, self.function(params=self.__index_to_dict(index, ranges_eval), **self.function_kwargs))
+					yield (index, self.function(*self.function_args, params=self.__index_to_dict(index, ranges_eval), **self.function_kwargs))
 				if self.progress is not False:
 					if self.progress is True:
 						self.__print_progress_fallback(len(indices), i + 1, start_time)
