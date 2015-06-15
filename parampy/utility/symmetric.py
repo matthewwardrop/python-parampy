@@ -69,30 +69,30 @@ def spawnonce(f):
 	return fun
 
 class ParallelMap(object):
-
+	
 	def __init__(self, f, progress=False, **kwargs):
 		self.f = f
 		self.progress = progress
 		self.init(**kwargs)
-
+	
 	def init(self):
 		pass
-
+	
 	def reset(self, f=None, count_offset=None, count_total=1, **kwargs):
 		if f is not None:
 			self.f = f
-
+		
 		self.count = 0
 		self.count_offset = count_offset
 		self.count_total = count_total
 
 		self.start_time = None
-
+		
 		self._reset(**kwargs)
-
+	
 	def _reset(self):
 		pass
-
+	
 	def _print_progress(self):
 		progress = self.progress
 		if self.progress is True:
@@ -131,13 +131,13 @@ class ParallelMap(object):
 			sys.stderr.write('\n')
 
 		sys.stderr.flush()
-
+	
 	def map(self, X, count_offset=None, count_total=None, start_time=None):
 		return list(self.iterate(X,count_offset=count_offset,count_total=count_total,start_time=start_time))
-
+	
 	def iterate(self, X, count_offset=None,count_total=None,start_time=None, base_kwargs=None):
 		pass
-
+	
 class AsyncParallelMap(ParallelMap):
 
 	def init(self, nprocs=None, spawnonce=True):
@@ -176,7 +176,7 @@ class AsyncParallelMap(ParallelMap):
 
 		self.start_time = start_time if start_time is not None else datetime.datetime.now()
 		self.count_total = count_total if count_total is not None else len(X)
-
+		
 		if not self.spawnonce:
 			X = X + [(None, None, None)] * self.nprocs  # add sentinels
 
@@ -205,7 +205,7 @@ class AsyncParallelMap(ParallelMap):
 			for result in self.__sweep_results():
 				yield result
 
-			#gc.collect()
+			gc.collect()
 			if self.progress is not False:
 				self._print_progress()
 
@@ -225,13 +225,13 @@ try:
 	assert(float(dispy.__version__) >= 4.1)
 	import dispy.httpd
 	import threading
-
+		
 	class DistributedParallelMap(ParallelMap):
-
+		
 		def init(self, **cluster_opts):
 			self.cluster_opts = cluster_opts
 			self.lock = threading.Condition()
-
+		
 		def _reset(self, cluster_opts=None):
 			self.cluster_opts = cluster_opts if cluster_opts is not None else self.cluster_opts
 			self.jobs = []
@@ -242,7 +242,7 @@ try:
 				self.http_server = dispy.httpd.DispyHTTPServer(self.cluster)
 			else:
 				self.http_server = None
-
+		
 		def __receive_callback(self, job):
 			if job.result is None:
 				print
@@ -253,32 +253,32 @@ try:
 				print job.stdout
 				print job.stderr
 				print "-------"
-				print
+				print 
 			self.done.append(job)
-
+			
 			self.lock.acquire()
 			self.lock.notifyAll()
 			self.lock.release()
-
+		
 		def iterate(self, X, count_offset=None,count_total=None,start_time=None, base_kwargs=None):
 			self.reset(count_offset=count_offset,count_total=count_total)
-
+			
 			self.start_time = start_time if start_time is not None else datetime.datetime.now()
 			self.count_total = count_total if count_total is not None else len(X)
-
+			
 			for (x_indices, x_args, x_kwargs) in X:
 				if base_kwargs is not None:
 					kwargs = base_kwargs.copy()
 					kwargs.update(x_kwargs)
 				else:
 					kwargs = x_kwargs
-
+				
 				job = self.cluster.submit(*x_args, **kwargs)
 				job.id = x_indices
 				self.jobs.append(job)
-
+			
 			self._print_progress()
-
+			
 			while self.count < len(X):
 				while len(self.done) > 0:
 					job = self.done.pop()
@@ -289,17 +289,17 @@ try:
 					self.lock.acquire()
 					self.lock.wait(1.) # Just in case a result slipped through while incorporated below, we wait a max of 1 second before polling again.
 					self.lock.release()
-
+			
 			self._finalise()
-
+		
 		def _finalise(self):
 			self.cluster.wait()
 			self.cluster.stats()
-
+			
 			if self.http_server is not None:
 				self.http_server.shutdown()
-
+			
 			self.cluster.close()
-
+			
 except:
 	pass
