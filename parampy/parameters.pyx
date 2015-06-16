@@ -353,10 +353,10 @@ class Parameters(object):
 			unit = Unit(*args, **kwargs)
 		self.__units.add(unit)
 		self.__units_custom.append(unit)
-	
+
 	def set_units_context(self, *name, **params):
 		self.__units.set_context(*name,**params)
-	
+
 	@property
 	def units_context(self):
 		return self.__units.context
@@ -1509,7 +1509,7 @@ class Parameters(object):
 	################## Function iteration ##################################
 	def ranges_iterator(self, ranges, params={}, masks=None, function=None, param_args=(), function_args=(), function_kwargs={}, nprocs=None, distributed=False, ranges_eval=None, progress=True):
 		'''
-		ranges_iterator(ranges, params={}, masks=None, function=None, function_args=(), function_kwargs={}, nprocs=None, ranges_eval=None, progress=True)
+		ranges_iterator(ranges, params={}, masks=None, function=None, param_args=(), function_args=(), function_kwargs={}, nprocs=None, distributed=False, ranges_eval=None, progress=True)
 
 		This method is shorthand for:
 
@@ -1955,7 +1955,7 @@ class Parameters(object):
 		p.cache(**getattr(profile, "parameters_cache", {}))
 
 		p & getattr(profile, "parameters_units", {})
-		
+
 		p.set_units_context(getattr(profile, "units_context", None))
 
 		return p
@@ -1970,7 +1970,7 @@ class Parameters(object):
 
 	def __save__(self, filename):
 		f = open(filename, 'w')
-		
+
 		# Export unit context
 		if self.units_context is not None:
 			f.write('units_context = %s' % self.units_context)
