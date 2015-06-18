@@ -161,7 +161,7 @@ class AsyncParallelMap(ParallelMap):
 				p.daemon = True
 				p.start()
 
-	def __sweep_results(self,timeout=0.01):
+	def __sweep_results(self,timeout=0):
 		while True:
 			try:
 				yield self.q_out.get(timeout=timeout)
@@ -205,7 +205,6 @@ class AsyncParallelMap(ParallelMap):
 			for result in self.__sweep_results():
 				yield result
 
-			gc.collect()
 			if self.progress is not False:
 				self._print_progress()
 
