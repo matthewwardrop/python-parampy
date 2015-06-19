@@ -1,4 +1,5 @@
 import sys
+import multiprocessing
 import threading
 import resource
 import datetime
@@ -149,7 +150,7 @@ class RangesIterator(object):
 		self.ranges_eval = ranges_eval
 		self.progress = progress
 
-		if threading.currentThread().name != "MainThread":
+		if current_process().name != "MainProcess" or threading.current_thread().name != "MainThread":
 			self.nprocs = 1
 			self.distributed = False
 
