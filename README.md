@@ -1,7 +1,7 @@
 ParamPy
 =======
 
-`parampy` is a Python module that abstracts the management of model parameters. It can:
+`parampy` is a Python2 (Python 3 is not supported `*`) module that abstracts the management of model parameters. It can:
 
  - Simplify the storage and retrieval of model parameters.
  - Keep track of parameter units, and perform unit conversions where that makes sense. It is also possible to provide/override unit definitions and conversions.
@@ -32,3 +32,5 @@ Otherwise, installing this module is as easy as:
 If you run Arch Linux, you can instead run:
 
 	$ makepkg -i
+
+`*` A port of `parampy` to Python 3 exists as a branch, but its performance is slightly worse than in Python 2. For this reason, it has not yet been pushed to the master branch.
