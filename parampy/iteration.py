@@ -77,7 +77,8 @@ class RangesIterator(object):
 
 		In each iteration of the above loop, result will be a two-tuple of the indices of
 		the current iteration in the cartesian product and one of the following:
-		- If :func:`function` is not specified, then a dictionary of the parameters (including except where overwritten those in :python:`params`) corresponding to the cartesian indices.
+
+		- If :func:`function` is not specified, then a dictionary of the parameters (including, except where overwritten, those in :python:`params`) corresponding to the cartesian indices.
 		- If :func:`function` is specified, the value of the function evaluated in the parameter context, and with the kwargs arguments in :python:`function_kwargs`.
 
 	Specifying a function to be evaluated:
