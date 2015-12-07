@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import timeit
 import cProfile as profile
 import math
@@ -291,15 +293,15 @@ class TestParameters(unittest.TestCase):
 
 if __name__ == '__main__':
 
-	print "\n\n"
-	print "Unit Tests"
-	print "-----------------"
+	print("\n\n")
+	print("Unit Tests")
+	print("-----------------")
 	unittest.main(exit=False)
 
 
-	print "Performance Tests"
-	print "-----------------"
-	print
+	print("Performance Tests")
+	print("-----------------")
+	print()
 	x = 1e23
 	p=Parameters()
 	p(x=x,y=2,z=3,a=1,b=2,c=3,d=2)
@@ -307,11 +309,11 @@ if __name__ == '__main__':
 	#p['x'] = (0,1e24)
 
 	def timer(name,baseline,*tests):
-		print " - Speed tests for %s" % name
+		print(" - Speed tests for %s" % name)
 		time_base = timeit.timeit("%s()"%baseline.__name__,setup="from __main__ import %s"%baseline.__name__,number=100000)
 		for test in tests:
 			time = timeit.timeit("%s()"%test.__name__,setup="from __main__ import %s"%test.__name__,number=100000)
-			print "\t%s: \t%.2fx slower than baseline" % (test.__name__,time/time_base)
+			print("\t%s: \t%.2fx slower than baseline" % (test.__name__,time/time_base))
 
 	def test_baseline():
 		return q['x']

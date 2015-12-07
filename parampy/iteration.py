@@ -200,7 +200,7 @@ class RangesIterator(object):
 		return self.__function
 	@function.setter
 	def function(self, function):
-		if not isinstance(function, (types.NoneType, types.FunctionType, types.MethodType)):
+		if not isinstance(function, (type(None), types.FunctionType, types.MethodType)):
 			raise ValueError("`function` must be a function or a method.")
 		self.__function = function
 
@@ -346,17 +346,17 @@ class RangesIterator(object):
 		tparams.update(pam_ranges)
 		tparams.update(pam_values)
 
-		pam_values = self.p.range(pam_ranges.keys(), **tparams)
+		pam_values = self.p.range(list(pam_ranges.keys()), **tparams)
 
 		c = len(pam_values[param])
 		count = c if count is None else count
 		if c != count:
-			raise ValueError, "Parameter ranges for %s are not consistent in count: %s" % (param, pam_ranges)
+			raise ValueError("Parameter ranges for %s are not consistent in count: %s" % (param, pam_ranges))
 
 		if ranges_eval is None or ranges_eval.ndim < level + 1:
-			ranges_eval = self.__extend_ranges(ranges_eval, pam_ranges.keys(), count)
+			ranges_eval = self.__extend_ranges(ranges_eval, list(pam_ranges.keys()), count)
 
-		for i in xrange(count):
+		for i in range(count):
 			current_iteration = iteration + (i,)
 
 			# Generate slice corresponding all the components of range_eval this iteration affects

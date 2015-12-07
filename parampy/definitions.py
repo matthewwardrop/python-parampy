@@ -21,23 +21,23 @@ class SIUnitDispenser(UnitDispenser):
 		a list of supported prefixes.
 		'''
 		self._prefixes = [
-			("yotta", "Y", 1e24),
-			("zepto", "Z", 1e21),
-			("exa", "E", 1e18),
-			("peta", "P", 1e15),
-			("tera", "T", 1e12),
-			("giga", "G", 1e9),
-			("mega", "M", 1e6),
-			("kilo", "k", 1e3),
-			("milli", "m", 1e-3),
-			("micro", (u"μ", "{mu}"), 1e-6),
-			("nano", "n", 1e-9),
-			("pico", "p", 1e-12),
-			("femto", "f", 1e-15),
-			("atto", "a", 1e-18),
-			("zepto", "z", 1e-21),
-			("yocto", "y", 1e-24)
-		]
+				("yotta", "Y", 1e24),
+				("zepto", "Z", 1e21),
+				("exa", "E", 1e18),
+				("peta", "P", 1e15),
+				("tera", "T", 1e12),
+				("giga", "G", 1e9),
+				("mega", "M", 1e6),
+				("kilo", "k", 1e3),
+				("milli", "m", 1e-3),
+				("micro", (u"μ", "{mu}"), 1e-6),
+				("nano", "n", 1e-9),
+				("pico", "p", 1e-12),
+				("femto", "f", 1e-15),
+				("atto", "a", 1e-18),
+				("zepto", "z", 1e-21),
+				("yocto", "y", 1e-24)
+			]
 
 	def init_units(self):
 		'''
@@ -60,20 +60,20 @@ class SIUnitDispenser(UnitDispenser):
 			+ Unit("dollar", "$", 1.0, prefixable=False).set_dimensions(currency=1) \
 			+ Unit("radian", "rad", 1.0).set_dimensions(angle=1)
 		self.basis(mass='kg')
-		
+
 		# Non-linear units
 		self \
 			+ Unit("decibel", "dB", 1.0)
-		
+
 		self.add_conversion_map("dB", "", lambda v: 10**(v/10.))
 		self.add_conversion_map("", "dB", lambda v: 10*math.log(v,10))
-	
+
 		# Angular units
 		self \
 			+ Unit("degree", [u"°","deg"], 180./math.pi).set_dimensions(angle=1)
 		self.add_scaling({'time':-1,'angle':1}, {'time':-1}, 1./2/math.pi)
 		self.add_scaling({'angle':1}, {}, 1)
-		
+
 		# Scales
 		self \
 			+ Unit("mile", "mi", 201168. / 125).set_dimensions(length=1) \
@@ -130,24 +130,24 @@ class SIUnitDispenser(UnitDispenser):
 			+ Unit("gallon", "gal", 4 * 473176473. / 125000000000).set_dimensions(length=3) \
 			+ Unit("quart", "qt", 473176473. / 125000000000).set_dimensions(length=3) \
 			+ Unit("weber", "Wb", 1.).set_dimensions(length=2, mass=1, time=-2, current=-1)
-		
+
 		# Temperature
 		self \
 			+ Unit("fahrenheit", [u"°F","degF"], 9./5).set_dimensions(temperature=1) \
 			+ Unit("celsius", [u"°C","degC"], 1.).set_dimensions(temperature=1)
-		
+
 		self.add_conversion_map('fahrenheit','celsius',lambda f: (f - 32)*5./9, absolute=True)
 		self.add_conversion_map('fahrenheit','kelvin',lambda f: (f + 459.67)*5./9, absolute=True)
 		self.add_conversion_map('fahrenheit','celsius',lambda f: f*5./9, absolute=False)
 		self.add_conversion_map('fahrenheit','kelvin',lambda f: f*5./9, absolute=False)
-		
+
 		self.add_conversion_map('celsius','fahrenheit',lambda c: c*9./5 + 32, absolute=True)
 		self.add_conversion_map('celsius','kelvin',lambda c: c +  273.15, absolute=True)
 		self.add_conversion_map('celsius','fahrenheit',lambda c: c*9./5, absolute=False)
 		self.add_conversion_map('celsius','kelvin',lambda c: c, absolute=False)
-		
+
 		self.add_context("cm", hbar=1.05457173e-34)
-		
+
 		self.add_scaling({'mass':1,'length':2,'time':-2}, {'time':-1}, lambda hbar: 1./2/math.pi/hbar, context="cm")
 
 class SIQuantity(Quantity):
