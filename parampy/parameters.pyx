@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from . import errors
 from . import physical_constants
 from .definitions import SIUnitDispenser
@@ -1017,7 +1019,7 @@ class Parameters(object):
 			f = sympy.utilities.lambdify(syms, expr, dummify=False, modules=['numpy','mpmath','math','sympy'])
 			return f
 		except Exception, e:
-			print e
+			print(e)
 			raise errors.SymbolicEvaluationError('String \'%s\' is not a valid symbolic expression.' % (expr))
 
 	def __get_function(self, expr):
@@ -1104,7 +1106,7 @@ class Parameters(object):
 
 	def __getattr__(self, name):
 		if name[:2] == "__" or name[:11] == "_Parameters":
-			raise AttributeError
+			raise AttributeError()
 		return self.__get_param(name)
 
 	def __setattr__(self, attr, value):
@@ -1209,7 +1211,7 @@ class Parameters(object):
 			if param not in self.__parameters:
 				parameters.append([colour_text(param, 'CYAN'), colour_text("- %s" % self.__parameters_spec[param], 'CYAN'), colour_text("-", 'CYAN')])
 
-		print self.__table(parameters)
+		print(self.__table(parameters))
 
 	################## PARAMETER BOUNDS ####################################
 
@@ -1619,7 +1621,7 @@ class Parameters(object):
 			units[param] = self.__parameters_spec.get(param, None)
 
 		if len(params)==1 and not use_dict:
-			return units[units.keys()[0]]
+			return units[list(units.keys())[0]]
 		return units
 
 	def convert(self, quantity, input=None, output=None, value=True):
@@ -1877,7 +1879,7 @@ class Parameters(object):
 		try:
 			import matplotlib.pyplot as plt
 		except:
-			print colour_text("Matplotlib is required for plotting features.", "RED", True)
+			print(colour_text("Matplotlib is required for plotting features.", "RED", True))
 			return
 
 		if len(params) == 0:
