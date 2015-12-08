@@ -1,6 +1,6 @@
 __author__ = 'Matthew Wardrop'
-__author_email__ = 'mister dot <surname> at gmail'
-__version__ = '2.0.1'
+__author_email__ = 'mister.wardrop@gmail.com'
+__version__ = '2.1.0'
 
 import pyximport; pyximport.install()
 

@@ -1,7 +1,7 @@
 ParamPy
 =======
 
-`parampy` is a Python2 (Python 3 is not supported `*`) module that abstracts the management of model parameters. It can:
+`parampy` is a Python 2/3* module that abstracts the management of model parameters. It can:
 
  - Simplify the storage and retrieval of model parameters.
  - Keep track of parameter units, and perform unit conversions where that makes sense. It is also possible to provide/override unit definitions and conversions.
@@ -14,7 +14,7 @@ ParamPy
  - Simplify parameters based upon whether or not certain parameters can be assumed to be fixed.
  - Run with low overhead so it is suitable for use in simulations in which parameters will be evaluated millions of times.
 
-As of version 2.0.0 (the version at time of writing), simple parameter storage and extraction is only a factor of 8 ± 1 times slower than simply setting and reading a python variable; though this increases when more advanced features are used. As a result, ParamPy ought not to be the bottleneck in simulations.
+As of version 2.1.0 (the version at time of writing), simple parameter storage and extraction is only a factor of 8 ± 1 times slower than simply setting and reading a python variable (under Python 2*); though this increases when more advanced features are used. As a result, ParamPy ought not to be the bottleneck in simulations.
 
 Most of the above features are thoroughly documented and unittested. Refer to `documentation.pdf` for more details.
 
@@ -27,10 +27,10 @@ If you use `pip`, you can run:
 
 Otherwise, installing this module is as easy as:
 
-	$ python2 setup.py install
+	$ python setup.py install
 
 If you run Arch Linux, you can instead run:
 
 	$ makepkg -i
 
-`*` A port of `parampy` to Python 3 exists as a branch, but its performance is slightly worse than in Python 2. For this reason, it has not yet been pushed to the master branch.
+`*` Python 3 support is new as of version 2.1.0 . ParamPy currently runs a little slower under Python 3 compared to Python 2.
