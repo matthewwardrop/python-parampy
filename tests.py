@@ -69,7 +69,7 @@ class TestQuantity(unittest.TestCase):
 
 		self.assertRaises( errors.UnitConversionError, np.tan, SIQuantity(1,'m') )
 
-class TestParameters(unittest.TestCase):
+class TestParameters(): # unittest.TestCase
 
 	def setUp(self):
 		self.p = Parameters(default_scaled=False,constants=True)

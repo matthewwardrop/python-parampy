@@ -408,6 +408,7 @@ class Quantity(object):
 		return object.__getattribute__(self, attr)
 
 	def __array_prepare__(self, array, context=None):
+		
 		ufunc, objs, domain = context
 
 		if ufunc.__name__ in self.__numpy_ufuncs and domain == 0:
@@ -429,10 +430,9 @@ class Quantity(object):
 
 			if ufunc.__name__ not in self.__numpy_ufuncs:
 				warnings.warn("ufunc '%s' not explicitly understood. Attempting to apply anyway." % ufunc.__name__)
-				#return np.asarray(self.value).__array_wrap__(array, context)
 
 			if ufunc.__name__ in self.__numpy_units_in:
-				objs = map(lambda x: x(self.__numpy_units_in[ufunc.__name__] if isinstance(x, Quantity) else x), objs)
+				objs = list(map(lambda x: x(self.__numpy_units_in[ufunc.__name__] if isinstance(x, Quantity) else x), objs))
 
 			rv = ufunc(*[v.value if isinstance(v,Quantity) else v for v in objs])
 

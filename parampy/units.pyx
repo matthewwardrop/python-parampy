@@ -3,9 +3,10 @@ import re, types, inspect
 
 from . import errors
 from .text import colour_text
+from .utility.compat import UnicodeMixin
 
 
-class Unit(object):
+class Unit(UnicodeMixin):
 	'''
 	Unit (name,abbr=None,rel=1.0,prefixable=True,plural=None,dimensions={},base_unit=None)
 
@@ -151,11 +152,8 @@ class Unit(object):
 	def __unicode__(self):
 		return self.name
 
-	def __str__(self):
-		return unicode(self).encode('utf-8')
 
-
-class UnitDispenser(object):
+class UnitDispenser(UnicodeMixin):
 	'''
 	UnitDispenser()
 
@@ -707,7 +705,7 @@ class UnitDispenser(object):
 		return self(name)
 
 
-class Units(object):
+class Units(UnicodeMixin):
 	'''
 	Units(units=None,dispenser=None)
 
@@ -855,7 +853,7 @@ class Units(object):
 	def __unicode__(self):
 		output = []
 
-		items = sorted(self.__units.items())
+		items = sorted(self.__units.items(), key=str)
 
 		for unit, power in items:
 			if power > 0:
@@ -873,9 +871,6 @@ class Units(object):
 					output += "/%s" % unit.abbr
 
 		return output
-
-	def __str__(self):
-		return unicode(self).encode('utf-8')
 
 	def scale(self, other, context=False, value=None):
 		'''
