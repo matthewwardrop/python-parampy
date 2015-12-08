@@ -3,7 +3,7 @@ import re, types, inspect
 
 from . import errors
 from .text import colour_text
-from .utility.compat import UnicodeMixin
+from .utility.compat import UnicodeMixin, str_types
 
 
 class Unit(UnicodeMixin):
@@ -635,7 +635,7 @@ class UnitDispenser(UnicodeMixin):
 		:returns: :class:`Unit` object associated with a the string representation.
 		:raises: :class:`UnitInvalidError` if no unit can be found that matches.
 		'''
-		if isinstance(unit, str):
+		if isinstance(unit, str_types):
 			try:
 				return self._units[unit]
 			except:
@@ -829,7 +829,7 @@ class Units(UnicodeMixin):
 					units[self.__get_unit(unit)] = Fraction(units.pop(unit))
 			return units
 
-		elif isinstance(units, str):
+		elif isinstance(units, str_types):
 			d = {}
 
 			if units == "units":
@@ -894,7 +894,7 @@ class Units(UnicodeMixin):
 			if getattr(self, '__scale_cache', None) is None:
 				self.__scale_cache = {}
 
-			if isinstance(other, str):
+			if isinstance(other, str_types):
 				other = self.__dispenser(other)
 
 			dims = self.dimensions

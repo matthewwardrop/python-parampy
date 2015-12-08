@@ -69,7 +69,7 @@ class TestQuantity(unittest.TestCase):
 
 		self.assertRaises( errors.UnitConversionError, np.tan, SIQuantity(1,'m') )
 
-class TestParameters(): # unittest.TestCase
+class TestParameters(unittest.TestCase):
 
 	def setUp(self):
 		self.p = Parameters(default_scaled=False,constants=True)
@@ -204,8 +204,8 @@ class TestParameters(): # unittest.TestCase
 	def test_asvalue(self):
 		self.p(x=(1,'J'))
 		self.p.scaling(mass=(-1000,'kg'))
-		self.assertEquals( self.p.asvalue(x=np.array([1,2,3])).tolist(),[-1000,-2000,-3000] )
-		self.assertEquals( self.p.asvalue(x=np.array([1,2,3]),y=np.array([1,2,3]))['y'].tolist(),[1,2,3] )
+		self.assertEquals( self.p.asvalue(x=np.array([1.,2.,3.])).tolist(),[-1000.,-2000.,-3000.] )
+		self.assertEquals( self.p.asvalue(x=np.array([1.,2.,3.]),y=np.array([1.,2.,3.]))['y'].tolist(),[1.,2.,3.] )
 
 	def test_bounds(self):
 		self.p(x=(1,'J'))

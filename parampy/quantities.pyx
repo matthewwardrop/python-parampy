@@ -6,8 +6,10 @@ import numpy as np
 
 from .units import UnitDispenser, Units
 from .text import colour_text
+from .utility.compat import UnicodeMixin
 
-class Quantity(object):
+@total_ordering
+class Quantity(UnicodeMixin):
 	'''
 	Quantity (value,units=None,absolute=False,dispenser=None)
 
@@ -228,9 +230,6 @@ class Quantity(object):
 	def __unicode__(self):
 		return u"%s %s" % (self.value,  unicode(self.units)) + (u" (abs)" if self.absolute else u"")
 
-	def __str__(self):
-		return unicode(self).encode('utf-8')
-
 	# Arithmetic
 	def __add__(self, other, reverse=False):
 		if other == 0:
@@ -339,6 +338,9 @@ class Quantity(object):
 
 	def __ne__(self,other):
 		return not self.__eq__(other)
+	
+	def __lt__(self,other): # Python 3 and newer ignore __cmp__
+		return self.__cmp__(other) == -1
 
 	def __cmp__(self, other):
 		if type(other) is tuple and len(other) == 2:

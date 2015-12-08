@@ -8,6 +8,11 @@ def strrep(obj):
         return unicode(obj).encode('utf-8')
     return obj.__unicode__()
 
+if sys.version_info[0] >= 3:
+    str_types = (str,)
+else:
+    str_types = (str,unicode)
+
 class UnicodeMixin(object):
 
     """Mixin class to handle defining the proper __str__/__unicode__
