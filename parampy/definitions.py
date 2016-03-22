@@ -76,19 +76,20 @@ class SIUnitDispenser(UnitDispenser):
 
 		# Scales
 		self \
-			+ Unit("mile", "mi", 201168. / 125).set_dimensions(length=1) \
+			+ Unit("mile", "mi", 1609.344).set_dimensions(length=1) \
 			+ Unit("yard", "yd", 0.9144).set_dimensions(length=1) \
-			+ Unit("foot", "ft", 381. / 1250, plural="feet").set_dimensions(length=1) \
-			+ Unit("inch", "in", 127. / 5000., plural="inches").set_dimensions(length=1) \
+			+ Unit("foot", "ft", 0.3048, plural="feet").set_dimensions(length=1) \
+			+ Unit("inch", "in", 0.0254, plural="inches").set_dimensions(length=1) \
 			+ Unit(["centimetre", "centimeter"], "cm", 0.01).set_dimensions(length=1) \
-			+ Unit("point", "pt", 1.27 / 5000.).set_dimensions(length=1) \
+			+ Unit("point", "pt", 2.54e-05).set_dimensions(length=1) \
 			+ Unit("angstrom", u"Å", 1e-10).set_dimensions(length=1) \
 			+ Unit("astronomical unit", "au", 149597870691.0).set_dimensions(length=1) \
 			+ Unit("lightyear", "ly", 9460730472580800.).set_dimensions(length=1)
 
 		# Time
 		self \
-			+ Unit("year", "year", 3944615652. / 125, prefixable=False).set_dimensions(time=1) \
+			+ Unit("year", "year", 31557600.0, prefixable=False).set_dimensions(time=1) \
+			+ Unit("month", "month", 2629800.0, prefixable=False).set_dimensions(time=1) \
 			+ Unit("day", "day", 86400.0, prefixable=False).set_dimensions(time=1) \
 			+ Unit("hour", "hour", 3600., prefixable=False).set_dimensions(time=1) \
 			+ Unit("minute", "min", 60., prefixable=False).set_dimensions(time=1) \
