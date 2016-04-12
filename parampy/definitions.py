@@ -90,6 +90,7 @@ class SIUnitDispenser(UnitDispenser):
 		self \
 			+ Unit("year", "year", 31557600.0, prefixable=False).set_dimensions(time=1) \
 			+ Unit("month", "month", 2629800.0, prefixable=False).set_dimensions(time=1) \
+			+ Unit("fortnight", "fortnight", 1209600.0, prefixable=False).set_dimensions(time=1) \
 			+ Unit("week", "week", 604800.0, prefixable=False).set_dimensions(time=1) \
 			+ Unit("day", "day", 86400.0, prefixable=False).set_dimensions(time=1) \
 			+ Unit("hour", "hour", 3600., prefixable=False).set_dimensions(time=1) \
